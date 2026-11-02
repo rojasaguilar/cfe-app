@@ -15,7 +15,7 @@ app.use(cookieParser());
 
 app.use(
   cors({
-    //   origin: 'envVars.FRONTEND_URL', // La URL exacta de tu frontend en Vite
+    origin: envVars.FRONTEND_URL, // La URL exacta de tu frontend en Vite
     credentials: true, // Permite el paso de cookies
   }),
 );
