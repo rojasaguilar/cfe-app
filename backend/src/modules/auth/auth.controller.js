@@ -1,18 +1,31 @@
 import catchAsync from "../../utils/catchAsync.js";
-import { createUser, createSendToken } from "./auth.service.js";
+import * as authService from "./auth.service.js";
 
 export const signup = catchAsync(async (req, res, next) => {
   const data = req.body;
 
-  const newAccount = await createUser({
+  const newAccount = await authService.createUser({
     email: data.email,
     password: data.password,
     passwordConfirm: data.passwordConfirm,
   });
 
-  createSendToken(newAccount, 201, res);
+  // createSendToken(newAccount, 201, res);
+  res.status(201).json({
+    status: "success",
+    message: "Cuenta creada exitosamente",
+  });
 });
 
+export const login = catchAsync(async (req, res, next) => {
+  const credentials = req.body;
+
+  const userAccount = await authService.login(credentials);
+
+  // console.log(userAccount)
+
+  authService.createSendToken(userAccount, 200, res);
+});
 
 // exports.protect = catchAsync(async (req, res, next) => {
 //   //1) Getting token and check if exists

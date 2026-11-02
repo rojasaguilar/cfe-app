@@ -17,7 +17,8 @@ CREATE TABLE cuenta_usuario (
     password VARCHAR(255) NOT NULL,
     rol VARCHAR(50) DEFAULT 'administrador',
     ultimo_acceso TIMESTAMP WITH TIME zone,
-    created_at TIMESTAMP WITH TIME ZONE
+    created_at TIMESTAMP WITH TIME zone,
+    activo boolean DEFAULT true	
 );
 
 CREATE TABLE departamento (
@@ -29,3 +30,5 @@ CREATE TABLE departamento (
 drop table departamento;
 
 delete from cuenta_usuario where 1=1
+
+alter table cuenta_usuario add column activo boolean default true

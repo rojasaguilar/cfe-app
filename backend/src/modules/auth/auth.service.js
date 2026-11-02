@@ -80,12 +80,50 @@ export const createUser = async (userData) => {
   const hashedPass = await bcrypt.hash(password, Number(envVars.SALT));
 
   const newUser = await db.query(
-    `INSERT INTO cuenta_usuario (email, password)
-    VALUES ($1, $2)
+    `INSERT INTO cuenta_usuario (email, password, created_at)
+    VALUES ($1, $2, NOW())
     RETURNING usuarioid,email,created_at
     `,
     [email, hashedPass],
   );
 
   return newUser.rows[0];
+};
+
+export const login = async (credentials) => {
+  const { email, password } = credentials;
+
+  if (!email || !password)
+    throw new AppError(
+      "auth_service",
+      "Proporciona todos los campos requeridos",
+      400,
+    );
+
+  const db = Database.getInstance();
+
+  const usertExists = await db.query(
+    `UPDATE cuenta_usuario  SET ultimo_acceso = NOW() 
+    WHERE email = $1 AND activo = TRUE
+    RETURNING *`,
+    [email],
+  );
+
+  if (usertExists.rowCount === 0)
+    throw new AppError("auth_service", "Usuario o contraseña incorrectos", 404);
+
+  if (!(await isPasswordCorrect(password, usertExists.rows[0].password)))
+    throw new AppError("auth_service", "Usuario o contraseña incorrectos", 404);
+
+  const userAccount = usertExists.rows[0];
+
+  delete userAccount["password"];
+
+  console.log(userAccount);
+
+  return userAccount;
+};
+
+const isPasswordCorrect = async (password, actualPassword) => {
+  return await bcrypt.compare(password, actualPassword);
 };
