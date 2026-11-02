@@ -46,6 +46,10 @@ export const createSendToken = (user, statusCode, res) => {
   });
 };
 
+export const decodeToken = (token) => {
+  return jwt.verify(token, envVars.JWT_SECRET);
+};
+
 export const createUser = async (userData) => {
   const { email, password, passwordConfirm } = userData;
 
@@ -122,6 +126,64 @@ export const login = async (credentials) => {
   console.log(userAccount);
 
   return userAccount;
+};
+
+const userExists = async (userId) => {
+  const db = Database.getInstance();
+
+  const userResult = await db.query(
+    "SELECT * FROM cuenta_usuario WHERE usuarioId = $1",
+    [userId],
+  );
+
+  if (userResult.rowCount === 0)
+    throw new AppError(
+      "auth_service",
+      "Sesión expirada. Inicia sesión nuevamente",
+      401,
+    );
+
+  return userResult.rows[0];
+};
+
+export const getUserAccountData = async (userId, iat) => {
+  const currentUser = await userExists(userId);
+
+  if (currentUser.passwordchangedat) {
+    // Convertimos la fecha de Postgres a segundos (Unix Timestamp)
+    const changedTimestamp = parseInt(
+      new Date(currentUser.passwordchangedat).getTime() / 1000,
+      10,
+    );
+
+    // Si la fecha de cambio es mayor a la emisión del token (iat), el token es obsoleto
+    if (changedTimestamp > iat) {
+      throw new AppError(
+        "auth_service",
+        "Contraseña modificada recientemente. Por favor, inicia sesión nuevamente.",
+        401,
+      );
+    }
+  }
+
+  return currentUser;
+};
+
+export const restrictTo = (...roles) => {
+  return (req, res, next) => {
+    // Asumimos que tu tabla 'cuenta_usuario' tiene un campo 'rol' (ej. 'admin', 'user')
+    if (!roles.includes(req.user.rol)) {
+      return next(
+        new AppError(
+          "auth_service",
+          "No tienes permiso para realizar esta acción.",
+          403,
+        ),
+      );
+    }
+
+    next();
+  };
 };
 
 const isPasswordCorrect = async (password, actualPassword) => {

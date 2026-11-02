@@ -1,5 +1,6 @@
 import catchAsync from "../../utils/catchAsync.js";
 import * as authService from "./auth.service.js";
+import { AppError } from "../../utils/error.js";
 
 export const signup = catchAsync(async (req, res, next) => {
   const data = req.body;
@@ -27,47 +28,54 @@ export const login = catchAsync(async (req, res, next) => {
   authService.createSendToken(userAccount, 200, res);
 });
 
-// exports.protect = catchAsync(async (req, res, next) => {
-//   //1) Getting token and check if exists
-//   let token = req.headers.authorization;
+// --- MIDDLEWARE PARA PROTEGER RUTAS ---
+export const protect = catchAsync(async (req, res, next) => {
+  // 1) Obtener el token desde las cookies
+  // NOTA: Requiere tener configurado 'cookie-parser' en tu app.js
+  let token = req.cookies?.jwt;
 
-//   if (!token || !token.startsWith('Bearer')) {
-//     throw new AppError('You are not logged in!, please log in', 401);
-//   }
+  // Si quisieras mantener compatibilidad con Postman usando el header Bearer como plan B:
+  if (!token && req.headers.authorization?.startsWith("Bearer")) {
+    token = req.headers.authorization.split(" ")[1];
+  }
 
-//   token = token.split(' ')[1];
+  if (!token)
+    throw new AppError(
+      "auth_controller",
+      "No has iniciado sesión. Por favor, inicia sesión para acceder.",
+      401,
+    );
 
-//   //2) Verification token
-//   //promisify COMING FROM util package (built in node.js)
-//   const decoded = await promisify(jwt.verify)(token, envVars.JWT_SECRET);
+  // 2) Verificar el token
+  const decoded = authService.decodeToken(token);
 
-//   //3) Check if user still exists
-//   const currentUser = await User.findById(decoded.id);
+  console.log(decoded.id);
 
-//   if (!currentUser)
-//     throw new AppError('Token no longer valid. Please log in again', 401);
+  const currentUser = await authService.getUserAccountData(
+    decoded.id,
+    decoded.iat,
+  );
+  
+  delete currentUser.password;
 
-//   //4) Check if user changed passwords after the token was issued
+  // // 5) Conceder acceso y guardar el usuario en la request
+  req.user = currentUser;
 
-//   if (currentUser.changedPasswordAfter(decoded.iat))
-//     throw new AppError('Password changed. Please log in again', 401);
+  console.log(currentUser);
 
-//   //GRANT ACCESS TO PROTECTED ROUTE
-//   req.user = currentUser;
-//   next();
-// });
+  next();
+});
 
-// //WRAPPER FUNCTION to have access to custom params
-// exports.restrictTo =
-//   (...roles) =>
-//   //ACTUAL MIDDLEWARE
-//   (req, res, next) => {
-//     //roles is an array.
-//     //are the params we pass on tourRoutes
-//     if (!roles.includes(req.user.role))
-//       next(
-//         new AppError("You don't have permission to perfom this action!", 403),
-//       );
+// --- MIDDLEWARE PARA RESTRINGIR POR ROLES ---
+export const restrictTo = (...roles) => {
+  return (req, res, next) => {
+    // Asumimos que tu tabla 'cuenta_usuario' tiene un campo 'rol' (ej. 'admin', 'user')
+    if (!roles.includes(req.user.rol)) {
+      return next(
+        new AppError("No tienes permiso para realizar esta acción.", 403),
+      );
+    }
 
-//     next();
-//   };
+    next();
+  };
+};

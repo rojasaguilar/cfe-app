@@ -1,14 +1,19 @@
 import express from "express";
-import authRouter from "./modules/auth/auth.router.js"; // Ajusta la ruta correcta
+import cookieParser from "cookie-parser";
+
+import authRouter from "./modules/auth/auth.router.js";
 import depaRouter from "./modules/departamentos/depa.router.js";
+import globalErrorHandler from "./middlewares/error.handler.js";
 
 const app = express();
 
-// Middleware para que Express entienda el JSON en el body de las peticiones
 app.use(express.json());
+app.use(cookieParser());
 
 // Montar el router bajo el prefijo '/api/v1/auth'
 app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/departamentos", depaRouter);
+
+app.use(globalErrorHandler);
 
 export default app;

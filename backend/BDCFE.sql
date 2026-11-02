@@ -18,6 +18,7 @@ CREATE TABLE cuenta_usuario (
     rol VARCHAR(50) DEFAULT 'administrador',
     ultimo_acceso TIMESTAMP WITH TIME zone,
     created_at TIMESTAMP WITH TIME zone,
+    passwordChangedAt TIMESTAMP WITH TIME zone,
     activo boolean DEFAULT true	
 );
 
@@ -31,4 +32,8 @@ drop table departamento;
 
 delete from cuenta_usuario where 1=1
 
-alter table cuenta_usuario add column activo boolean default true
+UPDATE cuenta_usuario 
+SET passwordChangedAt = NOW() 
+WHERE usuarioId = '4ec4db62-a452-45b0-bc5a-3febe46dd6ad';
+
+alter table cuenta_usuario add column  passwordChangedAt TIMESTAMP WITH TIME zone
