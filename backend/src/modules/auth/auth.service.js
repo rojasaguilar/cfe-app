@@ -1,7 +1,8 @@
-import envVars from "./../../config/config.dotenv";
-import { Database } from "../../config/Database";
-import { AppError } from "../../utils/error";
+import envVars from "./../../config/config.dotenv.js";
+import { Database } from "../../config/Database.js";
+import { AppError } from "../../utils/error.js";
 import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
 
 const signToken = (payload) =>
   jwt.sign({ ...payload }, envVars.JWT_SECRET, {
@@ -51,8 +52,16 @@ export const createUser = async (userData) => {
   if (!email || !password || !passwordConfirm)
     throw new Error("Por favor, proporciona todos los datos requeridos.");
 
-  if (passwordConfirm !== password)
-    throw new Error("Contraseñas no coinciden");
+  const strongPasswordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
+
+  if (!strongPasswordRegex.test(password))
+    throw new AppError(
+      "auth_service",
+      "La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula y un número.",
+      400,
+    );
+
+  if (passwordConfirm !== password) throw new Error("Contraseñas no coinciden");
 
   const db = Database.getInstance();
 
@@ -68,7 +77,7 @@ export const createUser = async (userData) => {
       400,
     );
 
-  const hashedPass = bcrypt.hash(password, envVars.SALT);
+  const hashedPass = await bcrypt.hash(password, Number(envVars.SALT));
 
   const newUser = await db.query(
     `INSERT INTO cuenta_usuario (email, password)
