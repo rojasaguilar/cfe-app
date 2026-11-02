@@ -55,7 +55,7 @@ export const protect = catchAsync(async (req, res, next) => {
     decoded.id,
     decoded.iat,
   );
-  
+
   delete currentUser.password;
 
   // // 5) Conceder acceso y guardar el usuario en la request
@@ -78,4 +78,12 @@ export const restrictTo = (...roles) => {
 
     next();
   };
+};
+
+export const getMe = (req, res) => {
+
+  res.status(200).json({
+    success: true,
+    data: { user: req.user },
+  });
 };
