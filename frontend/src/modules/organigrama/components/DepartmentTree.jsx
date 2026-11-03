@@ -191,10 +191,11 @@ export const DepartmentTree = ({
             Usa la rueda del mouse para navegar entre departamentos
           </div>
           <div className="w-full max-w-2xl h-64 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center text-gray-400 bg-white shadow-sm">
-            <ImageIcon size={48} className="mb-4 opacity-50" />
+            {/* <ImageIcon size={48} className="mb-4 opacity-50" />
             <p className="font-medium text-gray-500">
               Jerarquía de {department.nombre}
-            </p>
+            </p> */}
+            <img src='layout.png'></img>
           </div>
         </div>
       </div>
