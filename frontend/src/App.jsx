@@ -6,18 +6,19 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { Layout } from "./components/Layout";
 import { OrganigramaPage } from "./modules/organigrama/pages/OrganigramaPage";
 import { Signup } from "./modules/auth/pages/SignUp";
+import { LandingPage } from "./components/Landing";
 
 function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          {/* Si el usuario entra a la raíz "/", lo mandamos al login */}
-          <Route path="/" element={<Navigate to="/organigrama" replace />} />
+          <Route path="/" element={<Navigate to="/landing" replace />} />
 
           {/* Rutas Públicas */}
           <Route path="/signup" element={<Signup />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/landing" element={<LandingPage />} />
 
           {/* RUTAS PRIVADAS */}
           <Route element={<ProtectedRoute />}>
