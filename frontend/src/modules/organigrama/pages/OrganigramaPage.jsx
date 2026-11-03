@@ -65,6 +65,7 @@ export const OrganigramaPage = () => {
             department={departments[currentIndex]}
             onNext={handleNext}
             onPrev={handlePrev}
+            onStatusChange={fetchDepartamentos}
           />
         )}
       </div>
