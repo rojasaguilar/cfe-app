@@ -4,6 +4,7 @@ import { AuthProvider } from "./context/AuthContext";
 import { Login } from "./modules/auth/pages/Login";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { Layout } from "./components/Layout";
+import { OrganigramaPage } from "./modules/organigrama/pages/OrganigramaPage";
 
 function App() {
   return (
@@ -18,20 +19,22 @@ function App() {
 
           {/* RUTAS PRIVADAS */}
           <Route element={<ProtectedRoute />}>
-            
             {/* LAYOUT: Le quitamos el path="/home". Ahora solo envuelve. */}
             <Route element={<Layout />}>
-              
               {/* Todas las rutas aquí adentro tendrán el Sidebar y el Topbar */}
-              <Route path="/home" element={<div>Vista de Inicio (Dashboard)</div>} />
-              
-              <Route path="/empleados" element={<div>Vista de Empleados</div>} />
-              
-              {/* Puedes seguir agregando más rutas que usen el Layout aquí */}
-              <Route path="/organigrama" element={<div>Vista de Organigrama</div>} />
-              
-            </Route>
+              <Route
+                path="/home"
+                element={<div>Vista de Inicio (Dashboard)</div>}
+              />
 
+              <Route
+                path="/empleados"
+                element={<div>Vista de Empleados</div>}
+              />
+
+              {/* Puedes seguir agregando más rutas que usen el Layout aquí */}
+              <Route path="/organigrama" element={<OrganigramaPage />} />
+            </Route>
           </Route>
 
           {/* Ruta Catch-all (404) para cualquier URL que no exista */}
