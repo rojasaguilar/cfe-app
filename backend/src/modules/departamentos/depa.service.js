@@ -21,7 +21,11 @@ export const createDepa = async (depaData) => {
   );
 
   if (depaExists.rowCount > 0)
-    throw new AppError("depa_service", "El departamento no existe", 404);
+    throw new AppError(
+      "depa_service",
+      "No puede haber dos departamentos con el mismo nombre ",
+      404,
+    );
 
   const newDepa = await db.query(
     `INSERT INTO departamento (nombre)

@@ -51,15 +51,15 @@ export const activateDepartamento = async (departamentoId) => {
   }
 };
 
-export const updateDepartamento = async (departamentoId, data) => {
+export const updateDepartamento = async (id, nombre) => {
   try {
-    const response = await api.patch(`/departamentos/${departamentoId}`, {
-      data,
-    });
-    return response.data; // Devuelve el JSON de tu backend
+    const response = await api.patch(`/departamentos/${id}`, nombre);
+    return response.data;
   } catch (error) {
     if (error.response) {
-      throw new Error(error.response.data.message || "Error al iniciar sesión");
+      throw new Error(
+        error.response.data.message || "Error al actualizar el departamento",
+      );
     }
     throw new Error("Error de conexión al servidor");
   }

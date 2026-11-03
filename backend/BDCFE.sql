@@ -24,7 +24,7 @@ CREATE TABLE cuenta_usuario (
 
 CREATE TABLE departamento (
 	departamentoId UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-	nombre VARCHAR (56) NOT NULL,
+	nombre VARCHAR (56) unique NOT NULL,
 	activo boolean DEFAULT TRUE
 );
 
@@ -37,3 +37,4 @@ SET passwordChangedAt = NOW()
 WHERE usuarioId = '4ec4db62-a452-45b0-bc5a-3febe46dd6ad';
 
 alter table cuenta_usuario add column  passwordChangedAt TIMESTAMP WITH TIME zone
+
