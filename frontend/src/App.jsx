@@ -5,6 +5,7 @@ import { Login } from "./modules/auth/pages/Login";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { Layout } from "./components/Layout";
 import { OrganigramaPage } from "./modules/organigrama/pages/OrganigramaPage";
+import { Signup } from "./modules/auth/pages/SignUp";
 
 function App() {
   return (
@@ -15,6 +16,7 @@ function App() {
           <Route path="/" element={<Navigate to="/organigrama" replace />} />
 
           {/* Rutas Públicas */}
+          <Route path="/signup" element={<Signup />} />
           <Route path="/login" element={<Login />} />
 
           {/* RUTAS PRIVADAS */}
