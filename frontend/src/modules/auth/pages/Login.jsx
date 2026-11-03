@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "./../../../context/AuthContext";
-import { loginService } from "./../auth.service.js";
+import { loginService, getMeService } from "./../auth.service.js";
 
 export const Login = () => {
   const [email, setEmail] = useState("");
@@ -18,9 +18,13 @@ export const Login = () => {
     setIsLoading(true);
 
     try {
-      const data = await loginService(email, password);
+      await loginService(email, password);
+
+      const data = await getMeService();
+
+      console.log("la data", data);
       setUser(data.user);
-      navigate("/dashboard");
+      navigate("/organigrama");
     } catch (err) {
       setError(err.message);
     } finally {

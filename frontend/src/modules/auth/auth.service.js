@@ -16,5 +16,5 @@ export const loginService = async (email, password) => {
 export const getMeService = async () => {
   // No necesita try/catch aquí porque el Contexto manejará el error si falla (ej. si no hay sesión)
   const response = await api.get("/auth/me");
-  return response.data;
+  return response.data.data;
 };

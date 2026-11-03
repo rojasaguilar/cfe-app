@@ -2,6 +2,8 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 
 import { Login } from "./modules/auth/pages/Login";
+import { ProtectedRoute } from "./components/ProtectedRoute";
+import { Layout } from "./components/Layout";
 
 function App() {
   return (
@@ -9,10 +11,28 @@ function App() {
       <BrowserRouter>
         <Routes>
           {/* Si el usuario entra a la raíz "/", lo mandamos al login */}
-          <Route path="/" element={<Navigate to="/login" replace />} />
+          <Route path="/" element={<Navigate to="/organigrama" replace />} />
 
           {/* Rutas Públicas */}
           <Route path="/login" element={<Login />} />
+
+          {/* RUTAS PRIVADAS */}
+          <Route element={<ProtectedRoute />}>
+            
+            {/* LAYOUT: Le quitamos el path="/home". Ahora solo envuelve. */}
+            <Route element={<Layout />}>
+              
+              {/* Todas las rutas aquí adentro tendrán el Sidebar y el Topbar */}
+              <Route path="/home" element={<div>Vista de Inicio (Dashboard)</div>} />
+              
+              <Route path="/empleados" element={<div>Vista de Empleados</div>} />
+              
+              {/* Puedes seguir agregando más rutas que usen el Layout aquí */}
+              <Route path="/organigrama" element={<div>Vista de Organigrama</div>} />
+              
+            </Route>
+
+          </Route>
 
           {/* Ruta Catch-all (404) para cualquier URL que no exista */}
           <Route
