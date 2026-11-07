@@ -1,12 +1,13 @@
+-- USUARIOS/EMPLEADOS
 CREATE TABLE empleado (
-	empeadoId UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+	empleadoId UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 	rpe VARCHAR (12) NOT NULL,
 	rtt varchar(12),
 	nombres varchar(42) NOT NULL,
 	apellidos varchar(56) NOT NULL,
---	noPlaza
 	rfc VARCHAR(13) NOT NULL,
 	curp VARCHAR(18) NOT NULL,
+	plazaId UUID unique references plaza(plazaId) on delete cascade,
 	activo boolean DEFAULT TRUE
 );
 
@@ -22,19 +23,50 @@ CREATE TABLE cuenta_usuario (
     activo boolean DEFAULT true	
 );
 
+--ORGANIGRAMA
 CREATE TABLE departamento (
 	departamentoId UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 	nombre VARCHAR (56) unique NOT NULL,
 	activo boolean DEFAULT TRUE
 );
 
-drop table departamento;
+create table PUESTO (
+	puestoId UUID primary key default gen_random_uuid(),
+	nombrePuesto varchar(50) not null,
+	activo boolean default TRUE
+);
 
-delete from cuenta_usuario where 1=1
+create table PLAZA (
+	plazaId UUID primary key default gen_random_uuid(),
+	noPlaza varchar(30) unique not null,
+	puestoId UUID references puesto(puestoId) on delete cascade,	
+	departamentoId UUID references departamento(departamentoId) on delete cascade,
+	activo boolean default TRUE
+);
+
+
+--UTILS
 
 UPDATE cuenta_usuario 
 SET passwordChangedAt = NOW() 
 WHERE usuarioId = '4ec4db62-a452-45b0-bc5a-3febe46dd6ad';
 
-alter table cuenta_usuario add column  passwordChangedAt TIMESTAMP WITH TIME zone
+alter table cuenta_usuario add column  passwordChangedAt TIMESTAMP WITH TIME zone;
+
+alter table empleado add column plazaId UUID unique references plaza(plazaId) on delete cascade;
+
+
+SELECT 
+  pl.noPlaza AS noPlaza, 
+  pl.plazaId,
+  pu.nombrePuesto AS nombrePuesto,
+  pu.puestoId,
+  e.empleadoId,
+  e.rpe AS rpe,
+  e.rtt as rtt,
+  e.nombres AS empleado_nombres
+FROM plaza pl
+INNER JOIN puesto pu ON pl.puestoId = pu.puestoId
+LEFT JOIN empleado e ON pl.plazaId = e.plazaId AND e.activo = true
+WHERE pl.departamentoId = '1114d775-44dd-43a7-a064-ca9ad971ab41'
 

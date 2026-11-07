@@ -185,3 +185,23 @@ export const deleteDepa = async (departamentoId) => {
 
   return deletedDepa.rows[0];
 };
+
+export const getOrganigrama = async (departamentoId) => {
+  const db = Database.getInstance();
+
+  const organigrama = await db.query(
+    `
+    SELECT 
+  pl.noPlaza AS noPlaza, 
+  pu.nombrePuesto AS nombrePuesto,
+  e.rpe AS rpe,
+  e.rtt as rtt,
+  e.nombre AS empleado_nombre
+FROM plazas pl
+INNER JOIN puesto pu ON pl.puestoId = pu.puestoId
+LEFT JOIN empleados e ON pl.plazaId = e.plazaId AND e.activo = true
+WHERE pl.departamentoId = $1;
+    `,
+    [departamentoId],
+  );
+};
