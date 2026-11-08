@@ -1,10 +1,19 @@
-import React from 'react'
-import ReactDOM from 'react-dom/client'
-import App from './App.jsx'
-import './index.css' // Importante para que funcione Tailwind
+import React from "react";
+import ReactDOM from "react-dom/client";
+import App from "./App.jsx";
 
-ReactDOM.createRoot(document.getElementById('root')).render(
+// 1. Importaciones de MUI
+import { StyledEngineProvider, CssBaseline } from "@mui/material";
+
+// 2. Importación de tu CSS de Tailwind
+import "./index.css";
+
+ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <App />
-  </React.StrictMode>,
-)
+    {/* injectFirst manda el CSS de MUI al inicio del <head> */}
+    <StyledEngineProvider injectFirst>
+      <CssBaseline />
+      <App />
+    </StyledEngineProvider>
+  </React.StrictMode>
+);

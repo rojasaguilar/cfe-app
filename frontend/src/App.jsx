@@ -4,9 +4,10 @@ import { AuthProvider } from "./context/AuthContext";
 import { Login } from "./modules/auth/pages/Login";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { Layout } from "./components/Layout";
-import { OrganigramaPage } from "./modules/organigrama/pages/OrganigramaPage";
+import { OrganigramaPage } from "./modules/departamento/pages/OrganigramaPage";
 import { Signup } from "./modules/auth/pages/SignUp";
 import { LandingPage } from "./components/Landing";
+import { PuestosPage } from "./modules/puestos/pages/PuestosPage";
 
 function App() {
   return (
@@ -37,6 +38,8 @@ function App() {
 
               {/* Puedes seguir agregando más rutas que usen el Layout aquí */}
               <Route path="/organigrama" element={<OrganigramaPage />} />
+
+              <Route path="/puestos" element={<PuestosPage />} />
             </Route>
           </Route>
 
