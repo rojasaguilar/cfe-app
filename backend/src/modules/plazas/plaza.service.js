@@ -121,7 +121,7 @@ export const updatePlaza = async (plazaId, plazaData) => {
   // 2. Filtramos: Si es null o undefined, lo ignoramos por completo
   if (noPlaza != null) fieldsToUpdate.noPlaza = noPlaza;
   if (puestoId != null) fieldsToUpdate.puestoId = puestoId;
-  // if (plazaPadreId != null) 
+  // if (plazaPadreId != null)
   fieldsToUpdate.plazaPadreId = plazaPadreId;
 
   const keys = Object.keys(fieldsToUpdate);
@@ -157,7 +157,7 @@ export const updatePlaza = async (plazaId, plazaData) => {
     WHERE "plazaid" = $${index} 
     RETURNING *
   `;
-  console.log(queryString)
+  console.log(queryString);
 
   const db = Database.getInstance();
 
@@ -186,6 +186,22 @@ export const deletePlaza = async (plazaId) => {
 
   const db = Database.getInstance();
 
+  const isConnected = await db.query(
+    `SELECT plazaId 
+     FROM plaza 
+     WHERE (plazaId = $1 AND activo = true AND plazaPadreId IS NOT NULL)
+        OR (plazaPadreId = $1 AND activo = true)
+     LIMIT 1`,
+    [plazaId],
+  );
+
+  if (isConnected.rowCount > 0) {
+    throw new AppError(
+      "departamento_service",
+      "No se puede desactivar esta plaza porque tiene un superior asignado o cuenta con plazas subordinadas activas.",
+      409,
+    );
+  }
   const deletedPlaza = await db.query(
     `UPDATE plaza 
      SET activo = false 

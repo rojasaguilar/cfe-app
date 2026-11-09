@@ -74,14 +74,14 @@ export const updatePlaza = catchAsync(async (req, res, next) => {
 
 // --- ELIMINAR (Soft Delete) ---
 export const deletePlaza = catchAsync(async (req, res, next) => {
-  const { puestoId } = req.params;
+  const { plazaId } = req.params;
 
   // El servicio se encarga de cambiar el estatus 'activo' a false
-  await plazaService.deletePuesto(puestoId);
+  await plazaService.deletePlaza(plazaId);
 
   res.status(200).json({
     success: true,
-    message: "Puesto desactivado correctamente",
+    message: "Plaza desactivado correctamente",
     data: null,
   });
 });

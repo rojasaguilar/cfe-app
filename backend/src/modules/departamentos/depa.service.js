@@ -170,7 +170,7 @@ export const deleteDepa = async (departamentoId) => {
 
   const db = Database.getInstance();
 
-    const plazasActivasCheck = await db.query(
+  const plazasActivasCheck = await db.query(
     `SELECT plazaId 
      FROM plaza 
      WHERE departamentoId = $1 AND activo = true 
@@ -185,7 +185,6 @@ export const deleteDepa = async (departamentoId) => {
       409,
     );
   }
-
 
   // Actualizamos el campo 'activo' a false en lugar de hacer un DELETE FROM
   const deletedDepa = await db.query(
