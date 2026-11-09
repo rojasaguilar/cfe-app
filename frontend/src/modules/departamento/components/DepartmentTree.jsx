@@ -1,14 +1,13 @@
 import { useState, useEffect } from "react";
-import { Edit2, PowerOff, ImageIcon, Power, Check, X } from "lucide-react";
-
+import { Edit2, PowerOff, Power, Check, X } from "lucide-react";
 import { ConfirmActionModal } from "./ConfirmActionModal";
-
 import {
   deactivateDepartamento,
   activateDepartamento,
   updateDepartamento,
 } from "./../services/departamento.service.js";
 
+import { PlazaNode } from "./../../plazas/components/PlazaNode";
 export const DepartmentTree = ({
   department,
   onNext,
@@ -17,16 +16,66 @@ export const DepartmentTree = ({
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
-
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState("");
+
+  // Nuevo estado para las plazas del departamento actual
+  const [plazas, setPlazas] = useState([]);
+  const [isLoadingPlazas, setIsLoadingPlazas] = useState(false);
 
   useEffect(() => {
     setIsEditing(false);
     setEditName("");
-  }, [department]);
 
-  // Manejador del scroll con un ligero bloqueo para no disparar 100 eventos por segundo
+    // Cargar las plazas al cambiar de departamento
+    const fetchPlazas = async () => {
+      if (!department?.departamentoid) return;
+      setIsLoadingPlazas(true);
+      try {
+        // AQUÍ LLAMAS A TU SERVICIO CON EL ENDPOINT DEL SQL
+        // const response = await getPlazasByDepartamento(department.departamentoid);
+        // setPlazas(response.data);
+
+        // --- MOCK TEMPORAL PARA QUE VEAS EL DISEÑO ---
+        setTimeout(() => {
+          setPlazas([
+            {
+              plazaId: 1,
+              noPlaza: "PLZ-001",
+              nombrePuesto: "JEFE DE DEPARTAMENTO",
+              empleadoId: "emp1",
+              empleado_nombres: "JUAN PEREZ",
+              rpe: "9AVN3",
+            },
+            {
+              plazaId: 2,
+              noPlaza: "PLZ-002",
+              nombrePuesto: "SUPERVISOR DE ZONA",
+              empleadoId: null,
+              empleado_nombres: null,
+              rpe: null,
+            },
+            {
+              plazaId: 3,
+              noPlaza: "PLZ-003",
+              nombrePuesto: "INGENIERA DE PRUEBAS",
+              empleadoId: "emp3",
+              empleado_nombres: "MARIA GOMEZ",
+              rpe: "8BXM2",
+            },
+          ]);
+          setIsLoadingPlazas(false);
+        }, 500);
+      } catch (error) {
+        console.error("Error al cargar plazas", error);
+        setIsLoadingPlazas(false);
+      }
+    };
+
+    fetchPlazas();
+  }, [department]);
+  console.log(plazas);
+
   let scrollTimeout = null;
 
   const handleWheel = (e) => {
@@ -97,7 +146,7 @@ export const DepartmentTree = ({
   return (
     <>
       <div
-        className="flex flex-col h-[calc(100vh-180px)] bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden"
+        className="flex flex-col h-[calc(100vh-180px)] bg-gray-50 rounded-xl border border-gray-200 shadow-sm overflow-hidden"
         onWheel={handleWheel}
       >
         <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-gray-50/50">
@@ -186,17 +235,43 @@ export const DepartmentTree = ({
           )}
         </div>
 
-        <div className="flex-1 flex flex-col items-center justify-center bg-gray-50 p-8 relative">
-          <div className="absolute top-4 text-xs text-gray-400">
-            Usa la rueda del mouse para navegar entre departamentos
-          </div>
-          <div className="w-full max-w-2xl h-64 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center text-gray-400 bg-white shadow-sm">
-            {/* <ImageIcon size={48} className="mb-4 opacity-50" />
-            <p className="font-medium text-gray-500">
-              Jerarquía de {department.nombre}
-            </p> */}
-            <img src='layout.png'></img>
-          </div>
+        {/* ZONA DEL ORGANIGRAMA (Sustituye la imagen anterior) */}
+        <div className="flex-1 overflow-auto p-8 relative">
+          {isLoadingPlazas ? (
+            <div className="h-full flex items-center justify-center text-gray-500">
+              Cargando organigrama...
+            </div>
+          ) : (
+            // MOTOR DEL ÁRBOL
+            <div className="min-w-max flex flex-col items-center pt-8 pb-16">
+              {/* LÍNEAS Y NODOS HIJOS (Las Plazas) */}
+              {plazas.length > 0 ? (
+                <div className="relative flex flex-col items-center">
+                  {/* Tallo principal bajando del departamento */}
+                  {/* <div className="w-px h-8 bg-gray-400"></div> */}
+
+                  {/* Línea horizontal que conecta a todos los hijos */}
+                  <div
+                    className="relative flex justify-between w-full"
+                    style={{ width: `calc(100% - ${100 / plazas.length}%)` }}
+                  >
+                    <div className="absolute top-0 left-0 right-0 h-px bg-gray-400"></div>
+                  </div>
+
+                  {/* Contenedor de las tarjetas */}
+                  <div className="flex gap-8 justify-center mt-0">
+                    {plazas.map((plaza) => (
+                      <PlazaNode key={plaza.plazaId} plaza={plaza} />
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-12 p-8 border-2 border-dashed border-gray-300 rounded-xl text-gray-400 font-medium bg-white">
+                  No hay plazas registradas en este departamento
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

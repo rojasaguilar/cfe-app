@@ -1,9 +1,12 @@
-// src/services/auth.service.js
 import { api } from "../../services/api.js";
 
-export const createPuesto = async (nombrePuesto) => {
+export const createPlaza = async (noplaza, puestoid, departamentoid) => {
   try {
-    const response = await api.post("/puestos", { nombrePuesto });
+    const response = await api.post("/plazas", {
+      noPlaza: noplaza,
+      puestoId: puestoid,
+      departamentoId: departamentoid,
+    });
     return response.data; // Devuelve el JSON de tu backend
   } catch (error) {
     if (error.response) {
@@ -13,17 +16,17 @@ export const createPuesto = async (nombrePuesto) => {
   }
 };
 
-export const getPuestos = async () => {
-  try {
-    const response = await api.get("/puestos");
-    return response.data; // Devuelve el JSON de tu backend
-  } catch (error) {
-    if (error.response) {
-      throw new Error(error.response.data.message || "Error al iniciar sesión");
-    }
-    throw new Error("Error de conexión al servidor");
-  }
-};
+// export const getPlazas = async () => {
+//   try {
+//     const response = await api.get("/puestos");
+//     return response.data; // Devuelve el JSON de tu backend
+//   } catch (error) {
+//     if (error.response) {
+//       throw new Error(error.response.data.message || "Error al iniciar sesión");
+//     }
+//     throw new Error("Error de conexión al servidor");
+//   }
+// };
 
 // export const loginService = async (email, password) => {
 //   try {
