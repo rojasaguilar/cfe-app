@@ -191,17 +191,22 @@ export const getOrganigrama = async (departamentoId) => {
 
   const organigrama = await db.query(
     `
-    SELECT 
+   SELECT 
   pl.noPlaza AS noPlaza, 
+  pl.plazaId,
   pu.nombrePuesto AS nombrePuesto,
+  pu.puestoId,
+  e.empleadoId,
   e.rpe AS rpe,
   e.rtt as rtt,
-  e.nombre AS empleado_nombre
-FROM plazas pl
+  e.nombres AS empleado_nombres
+FROM plaza pl
 INNER JOIN puesto pu ON pl.puestoId = pu.puestoId
-LEFT JOIN empleados e ON pl.plazaId = e.plazaId AND e.activo = true
-WHERE pl.departamentoId = $1;
+LEFT JOIN empleado e ON pl.plazaId = e.plazaId AND e.activo = true
+WHERE pl.departamentoId = $1
     `,
     [departamentoId],
   );
+
+  return organigrama.rows;
 };

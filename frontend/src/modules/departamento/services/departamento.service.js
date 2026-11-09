@@ -64,3 +64,17 @@ export const updateDepartamento = async (id, nombre) => {
     throw new Error("Error de conexión al servidor");
   }
 };
+
+export const getOrganigrama = async (departamentoId) => {
+  try {
+    const response = await api.get(
+      `/departamentos/${departamentoId}/organigrama`,
+    );
+    return response.data; // Devuelve el JSON de tu backend
+  } catch (error) {
+    if (error.response) {
+      throw new Error(error.response.data.message || "Error al iniciar sesión");
+    }
+    throw new Error("Error de conexión al servidor");
+  }
+};

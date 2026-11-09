@@ -5,6 +5,7 @@ import {
   deactivateDepartamento,
   activateDepartamento,
   updateDepartamento,
+  getOrganigrama,
 } from "./../services/departamento.service.js";
 
 import { PlazaNode } from "./../../plazas/components/PlazaNode";
@@ -33,39 +34,41 @@ export const DepartmentTree = ({
       setIsLoadingPlazas(true);
       try {
         // AQUÍ LLAMAS A TU SERVICIO CON EL ENDPOINT DEL SQL
-        // const response = await getPlazasByDepartamento(department.departamentoid);
-        // setPlazas(response.data);
+        const response = await getOrganigrama(department.departamentoid);
+        console.log("organigrama", response.data);
+        setPlazas(response.data);
+         setIsLoadingPlazas(false);
 
         // --- MOCK TEMPORAL PARA QUE VEAS EL DISEÑO ---
-        setTimeout(() => {
-          setPlazas([
-            {
-              plazaId: 1,
-              noPlaza: "PLZ-001",
-              nombrePuesto: "JEFE DE DEPARTAMENTO",
-              empleadoId: "emp1",
-              empleado_nombres: "JUAN PEREZ",
-              rpe: "9AVN3",
-            },
-            {
-              plazaId: 2,
-              noPlaza: "PLZ-002",
-              nombrePuesto: "SUPERVISOR DE ZONA",
-              empleadoId: null,
-              empleado_nombres: null,
-              rpe: null,
-            },
-            {
-              plazaId: 3,
-              noPlaza: "PLZ-003",
-              nombrePuesto: "INGENIERA DE PRUEBAS",
-              empleadoId: "emp3",
-              empleado_nombres: "MARIA GOMEZ",
-              rpe: "8BXM2",
-            },
-          ]);
-          setIsLoadingPlazas(false);
-        }, 500);
+        // setTimeout(() => {
+        //   setPlazas([
+        //     {
+        //       plazaId: 1,
+        //       noPlaza: "PLZ-001",
+        //       nombrePuesto: "JEFE DE DEPARTAMENTO",
+        //       empleadoId: "emp1",
+        //       empleado_nombres: "JUAN PEREZ",
+        //       rpe: "9AVN3",
+        //     },
+        //     {
+        //       plazaId: 2,
+        //       noPlaza: "PLZ-002",
+        //       nombrePuesto: "SUPERVISOR DE ZONA",
+        //       empleadoId: null,
+        //       empleado_nombres: null,
+        //       rpe: null,
+        //     },
+        //     {
+        //       plazaId: 3,
+        //       noPlaza: "PLZ-003",
+        //       nombrePuesto: "INGENIERA DE PRUEBAS",
+        //       empleadoId: "emp3",
+        //       empleado_nombres: "MARIA GOMEZ",
+        //       rpe: "8BXM2",
+        //     },
+        //   ]);
+        //   setIsLoadingPlazas(false);
+        // }, 500);
       } catch (error) {
         console.error("Error al cargar plazas", error);
         setIsLoadingPlazas(false);

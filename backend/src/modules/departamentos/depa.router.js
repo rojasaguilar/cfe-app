@@ -17,6 +17,6 @@ router
   .patch(depaController.updateDepa)
   .delete(depaController.deleteDepa);
 
-// router.get("/departamentoId/organigrama", depaController.getOrganigrama);
+router.get("/:departamentoId/organigrama", depaController.getOrganigrama);
 
 export default router;

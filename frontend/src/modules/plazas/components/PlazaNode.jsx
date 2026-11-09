@@ -2,7 +2,7 @@ import { User, UserX } from "lucide-react";
 
 // Subcomponente para renderizar la tarjeta de cada plaza
 export const PlazaNode = ({ plaza }) => {
-  const isVacant = !plaza.empleadoId;
+  const isVacant = !plaza.empleadoid;
 
   return (
     <div className="flex flex-col items-center relative">
@@ -16,11 +16,11 @@ export const PlazaNode = ({ plaza }) => {
         {/* Cabecera: Puesto y No. Plaza */}
         <div className="border-b border-gray-100 pb-2 mb-3">
           <h4 className="text-sm font-bold text-gray-800 uppercase text-center leading-tight">
-            {plaza.nombrePuesto}
+            {plaza.nombrepuesto}
           </h4>
           <div className="flex justify-center mt-1">
             <span className="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-mono font-bold">
-              {plaza.noPlaza}
+              {plaza.noplaza}
             </span>
           </div>
         </div>

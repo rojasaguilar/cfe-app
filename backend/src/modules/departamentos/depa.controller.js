@@ -79,3 +79,16 @@ export const deleteDepa = catchAsync(async (req, res, next) => {
     data: null, // Puedes devolver deletedDepa si el frontend necesita los datos actualizados
   });
 });
+
+// Get orgranigrama
+export const getOrganigrama = catchAsync(async (req, res, next) => {
+  const { departamentoId } = req.params;
+
+  const organigrama = await depaService.getOrganigrama(departamentoId);
+
+  res.status(200).json({
+    success: true,
+    results: organigrama.length,
+    data: organigrama,
+  });
+});
