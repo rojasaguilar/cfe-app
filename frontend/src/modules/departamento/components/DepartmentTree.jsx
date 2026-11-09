@@ -258,6 +258,7 @@ export const DepartmentTree = ({
         departmentName={department.nombre}
         isActivating={!department.activo}
         isLoading={isUpdating}
+        entity={"Departamento"}
       />
     </>
   );

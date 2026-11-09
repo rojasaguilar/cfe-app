@@ -22,13 +22,21 @@ export const createPlaza = async (
   }
 };
 
-export const updatePlaza = async (plazaid, noplaza, puestoid, plazapadreid) => {
+export const updatePlaza = async (plazaid,data) => {
   try {
-    const response = await api.patch(`/plazas/${plazaid}`, {
-      noPlaza: noplaza,
-      puestoId: puestoid,
-      plazaPadreId: plazapadreid,
-    });
+    const response = await api.patch(`/plazas/${plazaid}`, data);
+    return response.data; // Devuelve el JSON de tu backend
+  } catch (error) {
+    if (error.response) {
+      throw new Error(error.response.data.message || "Error al iniciar sesión");
+    }
+    throw new Error("Error de conexión al servidor");
+  }
+};
+
+export const deactivatePlaza = async (plazaid) => {
+  try {
+    const response = await api.delete(`/plazas/${plazaid}`);
     return response.data; // Devuelve el JSON de tu backend
   } catch (error) {
     if (error.response) {

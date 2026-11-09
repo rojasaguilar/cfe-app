@@ -49,7 +49,7 @@ export const protect = catchAsync(async (req, res, next) => {
   // 2) Verificar el token
   const decoded = authService.decodeToken(token);
 
-  console.log(decoded.id);
+  // console.log(decoded.id);
 
   const currentUser = await authService.getUserAccountData(
     decoded.id,
@@ -61,7 +61,7 @@ export const protect = catchAsync(async (req, res, next) => {
   // // 5) Conceder acceso y guardar el usuario en la request
   req.user = currentUser;
 
-  console.log(currentUser);
+  // console.log(currentUser);
 
   next();
 });

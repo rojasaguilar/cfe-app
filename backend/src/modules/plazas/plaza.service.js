@@ -115,14 +115,17 @@ export const updatePlaza = async (plazaId, plazaData) => {
   }
 
   // 1. Extraemos los campos permitidos del objeto entrante
-  const { noPlaza, puestoId, plazaPadreId } = plazaData;
+  const { noplaza, puestoid, plazapadreid, activo } = plazaData;
   const fieldsToUpdate = {};
 
+  console.log("la plaza data", plazaData);
+
   // 2. Filtramos: Si es null o undefined, lo ignoramos por completo
-  if (noPlaza != null) fieldsToUpdate.noPlaza = noPlaza;
-  if (puestoId != null) fieldsToUpdate.puestoId = puestoId;
-  // if (plazaPadreId != null)
-  fieldsToUpdate.plazaPadreId = plazaPadreId;
+  if (noplaza) fieldsToUpdate.noplaza = noplaza;
+  if (puestoid) fieldsToUpdate.puestoid = puestoid;
+  // if (plazapadreid != null)
+  fieldsToUpdate.plazapadreid = plazapadreid;
+  fieldsToUpdate.activo = activo;
 
   const keys = Object.keys(fieldsToUpdate);
 

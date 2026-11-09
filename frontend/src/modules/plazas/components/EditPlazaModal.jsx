@@ -82,7 +82,11 @@ export const EditPlazaModal = ({
       const plazaId = plazaToEdit.plazaId || plazaToEdit.plazaid;
 
       // Usamos tu servicio dinámico enviando el objeto
-      await updatePlaza(plazaId, noplaza, puestoid, padreIdToSend);
+      await updatePlaza(plazaId, {
+        noplaza,
+        puestoid,
+        plazapadreid: padreIdToSend,
+      });
 
       onSuccess();
       onClose();

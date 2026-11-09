@@ -208,7 +208,8 @@ export const getOrganigrama = async (departamentoId) => {
   const organigrama = await db.query(
     `
    SELECT 
-  pl.noPlaza AS noPlaza, 
+  pl.noPlaza AS noPlaza,
+  pl.activo, 
   pl.plazaId,
   pl.plazaPadreId,
   pu.nombrePuesto AS nombrePuesto,

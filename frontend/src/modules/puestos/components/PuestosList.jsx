@@ -118,6 +118,7 @@ export const PuestosList = ({ puestos = [], onSuccess }) => {
         departmentName={selectedPuesto?.nombrepuesto || ""}
         isActivating={selectedPuesto ? !selectedPuesto.activo : false}
         isLoading={isUpdating}
+        entity={"Puesto"}
       />
     </>
   );

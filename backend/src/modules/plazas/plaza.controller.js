@@ -53,17 +53,19 @@ export const updatePlaza = catchAsync(async (req, res, next) => {
   const { plazaId } = req.params;
 
   const {
-    noPlaza = null,
-    puestoId = null,
-    plazaPadreId = null,
+    noplaza = null,
+    puestoid = null,
+    plazapadreid = null,
+    activo = null,
   } = req.body ?? {};
 
   console.log(req.body);
 
   const updatedPlaza = await plazaService.updatePlaza(plazaId, {
-    noPlaza,
-    puestoId,
-    plazaPadreId,
+    noplaza,
+    puestoid,
+    plazapadreid,
+    activo
   });
 
   res.status(200).json({

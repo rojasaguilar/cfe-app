@@ -75,3 +75,5 @@ WHERE pl.departamentoId = 'b4f66c6b-8a7b-4014-86e1-6dd9e52fccdf'
 ALTER TABLE plaza 
 ADD COLUMN plazaPadreId UUID REFERENCES plaza(plazaId) ON DELETE SET NULL;
 
+delete from plaza where activo = false
+
