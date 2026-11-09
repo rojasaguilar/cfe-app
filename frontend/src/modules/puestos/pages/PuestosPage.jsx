@@ -31,9 +31,13 @@ export const PuestosPage = () => {
     }
   }, []);
 
-  useEffect(() => {
-    fetchPuestos();
-  }, [fetchPuestos]);
+  useEffect(
+    () => {
+      fetchPuestos();
+    },
+    [fetchPuestos],
+    [puestos],
+  );
 
   return (
     <div className="p-8 max-w-6xl mx-auto flex flex-col h-full">
@@ -62,7 +66,7 @@ export const PuestosPage = () => {
             >
               <List size={20} />
             </button>
-            <button
+            {/* <button
               onClick={() => setView("table")}
               title="Vista de tabla"
               className={`p-1.5 rounded-md transition-all flex items-center justify-center ${
@@ -72,7 +76,7 @@ export const PuestosPage = () => {
               }`}
             >
               <TableIcon size={20} />
-            </button>
+            </button> */}
           </div>
 
           {/* Botón Nuevo Puesto con onClick */}
@@ -98,7 +102,7 @@ export const PuestosPage = () => {
           Error: {error}
         </div>
       ) : view === "list" ? (
-        <PuestosList puestos={puestos} />
+        <PuestosList puestos={puestos} onSuccess={fetchPuestos} />
       ) : (
         <PuestosTable puestos={puestos} />
       )}

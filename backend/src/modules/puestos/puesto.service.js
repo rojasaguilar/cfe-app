@@ -97,7 +97,8 @@ export const getAllPuestos = async (params = {}) => {
 
 // --- ACTUALIZAR (Update) ---
 export const updatePuesto = async (puestoId, puestoData) => {
-  const { nombrePuesto } = puestoData;
+  // Extraemos ambos campos. Usamos ?? {} por si puestoData es undefined
+  const { nombrePuesto, activo } = puestoData ?? {};
 
   if (!puestoId) {
     throw new AppError(
@@ -106,50 +107,74 @@ export const updatePuesto = async (puestoId, puestoData) => {
     );
   }
 
-  if (nombrePuesto === undefined && activo === undefined) {
+  // Verificamos si ambos son nulos o undefined
+  if (nombrePuesto == null && activo == null) {
     throw new AppError(
+      "puesto_service",
       "Proporciona al menos un dato para actualizar.",
       400,
     );
   }
 
   const db = Database.getInstance();
+  const fieldsToUpdate = {};
 
-  // 1. Verificar si el puesto existe
-  const puesto = await db.query("SELECT * FROM puesto WHERE puestoId = $1", [
-    puestoId,
-  ]);
+  // 1. Procesar y validar nombrePuesto (solo si se envió)
+  if (nombrePuesto != null) {
+    const nuevoNombre = nombrePuesto.toLowerCase().trim();
 
-  if (puesto.rowCount === 0) {
+    // Verificar que el nuevo nombre no colisione con OTRO puesto
+    const nameExists = await db.query(
+      `SELECT "puestoId" FROM puesto WHERE "nombrePuesto" = $1 AND "puestoId" != $2`,
+      [nuevoNombre, puestoId],
+    );
+
+    if (nameExists.rowCount > 0) {
+      throw new AppError(
+        "puesto_service",
+        "Ya existe otro puesto con ese nombre.",
+        409,
+      ); // 409 Conflict
+    }
+
+    fieldsToUpdate.nombrePuesto = nuevoNombre;
+  }
+
+  // 2. Procesar activo (solo si se envió)
+  if (activo != null) {
+    fieldsToUpdate.activo = activo;
+  }
+
+  // 3. Construir dinámicamente el SET y los Values
+  const keys = Object.keys(fieldsToUpdate);
+  const setClauses = [];
+  const values = [];
+  let index = 1;
+
+  for (const key of keys) {
+    // Si tus tablas usan camelCase en Postgres, asegúralo con comillas: "${key}"
+    // Si usas todo en minúsculas en tu BD, puedes quitarle las comillas
+    setClauses.push(`"${key}" = $${index}`);
+    values.push(fieldsToUpdate[key]);
+    index++;
+  }
+
+  // Agregamos el puestoId al final de los values para el WHERE
+  values.push(puestoId);
+
+  const queryString = `
+    UPDATE puesto 
+    SET ${setClauses.join(", ")}
+    WHERE "puestoid" = $${index} 
+    RETURNING *
+  `;
+
+  // 4. Ejecutar actualización
+  const updatedPuesto = await db.query(queryString, values);
+
+  if (updatedPuesto.rowCount === 0) {
     throw new AppError("El puesto que intentas actualizar no existe.", 404);
   }
-
-  // 2. Preparar los datos dinámicamente usando coalescencia
-  // Si no se envía un campo, se mantiene el que ya estaba en la BD
-  const nuevoNombre = nombrePuesto
-    ? nombrePuesto.toLowerCase().trim()
-    : puesto.rows[0].nombrePuesto;
-  const nuevoActivo = activo !== undefined ? activo : puesto.rows[0].activo;
-
-  // 3. Verificar que el nuevo nombre no colisione con otro puesto
-  if (nombrePuesto && nuevoNombre !== puesto.rows[0].nombrePuesto) {
-    const nameExists = await db.query(
-      "SELECT puestoId FROM puesto WHERE nombrePuesto = $1",
-      [nuevoNombre],
-    );
-    if (nameExists.rowCount > 0) {
-      throw new AppError("Ya existe otro puesto con ese nombrePuesto.", 400);
-    }
-  }
-
-  // 4. Actualizar
-  const updatedPuesto = await db.query(
-    `UPDATE puesto 
-     SET nombrePuesto = $1, activo = $2
-     WHERE puestoId = $3 
-     RETURNING *`,
-    [nuevoNombre, nuevoActivo, puestoId],
-  );
 
   return updatedPuesto.rows[0];
 };
@@ -164,6 +189,22 @@ export const deletePuesto = async (puestoId) => {
   }
 
   const db = Database.getInstance();
+
+  const plazasActivasCheck = await db.query(
+    `SELECT plazaId 
+     FROM plaza 
+     WHERE puestoId = $1 AND activo = true 
+     LIMIT 1`,
+    [puestoId],
+  );
+
+  if (plazasActivasCheck.rowCount > 0) {
+    throw new AppError(
+      "puesto_service",
+      "No se puede desactivar este puesto porque actualmente hay plazas activas que lo están utilizando. Haz los cambios pertientes para poder desactivar",
+      409,
+    );
+  }
 
   // Actualizamos el campo 'activo' a false en lugar de hacer un DELETE FROM
   const deletedPuesto = await db.query(

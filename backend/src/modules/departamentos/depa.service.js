@@ -170,6 +170,23 @@ export const deleteDepa = async (departamentoId) => {
 
   const db = Database.getInstance();
 
+    const plazasActivasCheck = await db.query(
+    `SELECT plazaId 
+     FROM plaza 
+     WHERE departamentoId = $1 AND activo = true 
+     LIMIT 1`,
+    [departamentoId],
+  );
+
+  if (plazasActivasCheck.rowCount > 0) {
+    throw new AppError(
+      "departamento_service",
+      "No se puede desactivar este departamento porque actualmente hay plazas activas. Haz los cambios pertientes para poder desactivar",
+      409,
+    );
+  }
+
+
   // Actualizamos el campo 'activo' a false en lugar de hacer un DELETE FROM
   const deletedDepa = await db.query(
     `UPDATE departamento 

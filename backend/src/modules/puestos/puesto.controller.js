@@ -49,11 +49,8 @@ export const getAllPuestos = catchAsync(async (req, res, next) => {
 // --- ACTUALIZAR ---
 export const updatePuesto = catchAsync(async (req, res, next) => {
   const { puestoId } = req.params;
-  const { nombrePuesto } = req.body;
 
-  const updatedPuesto = await puestoService.updatePuesto(puestoId, {
-    nombrePuesto,
-  });
+  const updatedPuesto = await puestoService.updatePuesto(puestoId, req.body);
 
   res.status(200).json({
     success: true,
