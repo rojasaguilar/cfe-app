@@ -52,7 +52,13 @@ export const getAllPlazas = catchAsync(async (req, res, next) => {
 export const updatePlaza = catchAsync(async (req, res, next) => {
   const { plazaId } = req.params;
 
-  const { noPlaza= null, puestoId = null, plazaPadreId = null } = req.body ?? {};
+  const {
+    noPlaza = null,
+    puestoId = null,
+    plazaPadreId = null,
+  } = req.body ?? {};
+
+  console.log(req.body);
 
   const updatedPlaza = await plazaService.updatePlaza(plazaId, {
     noPlaza,

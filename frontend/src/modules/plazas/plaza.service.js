@@ -1,12 +1,33 @@
 import { api } from "../../services/api.js";
 
-export const createPlaza = async (noplaza, puestoid, departamentoid, plazapadreid) => {
+export const createPlaza = async (
+  noplaza,
+  puestoid,
+  departamentoid,
+  plazapadreid,
+) => {
   try {
     const response = await api.post("/plazas", {
       noPlaza: noplaza,
       puestoId: puestoid,
       departamentoId: departamentoid,
-      plazaPadreId:plazapadreid
+      plazaPadreId: plazapadreid,
+    });
+    return response.data; // Devuelve el JSON de tu backend
+  } catch (error) {
+    if (error.response) {
+      throw new Error(error.response.data.message || "Error al iniciar sesión");
+    }
+    throw new Error("Error de conexión al servidor");
+  }
+};
+
+export const updatePlaza = async (plazaid, noplaza, puestoid, plazapadreid) => {
+  try {
+    const response = await api.patch(`/plazas/${plazaid}`, {
+      noPlaza: noplaza,
+      puestoId: puestoid,
+      plazaPadreId: plazapadreid,
     });
     return response.data; // Devuelve el JSON de tu backend
   } catch (error) {

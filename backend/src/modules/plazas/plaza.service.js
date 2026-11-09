@@ -121,7 +121,8 @@ export const updatePlaza = async (plazaId, plazaData) => {
   // 2. Filtramos: Si es null o undefined, lo ignoramos por completo
   if (noPlaza != null) fieldsToUpdate.noPlaza = noPlaza;
   if (puestoId != null) fieldsToUpdate.puestoId = puestoId;
-  if (plazaPadreId != null) fieldsToUpdate.plazaPadreId = plazaPadreId;
+  // if (plazaPadreId != null) 
+  fieldsToUpdate.plazaPadreId = plazaPadreId;
 
   const keys = Object.keys(fieldsToUpdate);
 
@@ -156,6 +157,7 @@ export const updatePlaza = async (plazaId, plazaData) => {
     WHERE "plazaid" = $${index} 
     RETURNING *
   `;
+  console.log(queryString)
 
   const db = Database.getInstance();
 

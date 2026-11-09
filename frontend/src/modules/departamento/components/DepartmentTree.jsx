@@ -27,33 +27,33 @@ export const DepartmentTree = ({
   const [plazasTree, setPlazasTree] = useState([]);
   const [isLoadingPlazas, setIsLoadingPlazas] = useState(false);
 
+  const fetchPlazas = async () => {
+    if (!department?.departamentoid) return;
+
+    try {
+      setIsLoadingPlazas(true);
+      // Traemos la data plana de la base de datos
+      const response = await getOrganigrama(department.departamentoid);
+      const dataPlana = response.data || response;
+
+      // Pasamos la data por nuestra función constructora
+      console.log(dataPlana);
+      const arbol = buildPlazaTree(dataPlana);
+
+      // Guardamos el árbol procesado en el estado
+      setPlazasTree(arbol);
+    } catch (error) {
+      console.error("Error al cargar plazas", error);
+    } finally {
+      setIsLoadingPlazas(false);
+    }
+  };
+
   useEffect(() => {
     setIsEditing(false);
     setEditName("");
 
     // Cargar las plazas al cambiar de departamento
-
-    const fetchPlazas = async () => {
-      if (!department?.departamentoid) return;
-
-      try {
-        setIsLoadingPlazas(true);
-        // Traemos la data plana de la base de datos
-        const response = await getOrganigrama(department.departamentoid);
-        const dataPlana = response.data || response;
-
-        // Pasamos la data por nuestra función constructora
-        console.log(dataPlana);
-        const arbol = buildPlazaTree(dataPlana);
-
-        // Guardamos el árbol procesado en el estado
-        setPlazasTree(arbol);
-      } catch (error) {
-        console.error("Error al cargar plazas", error);
-      } finally {
-        setIsLoadingPlazas(false);
-      }
-    };
 
     fetchPlazas();
   }, [department]);
@@ -236,6 +236,8 @@ export const DepartmentTree = ({
                     <PlazaNode
                       key={plazaRaiz.plazaId || plazaRaiz.plazaid}
                       plaza={plazaRaiz}
+                      departamentoid={department.departamentoid}
+                      onSuccess={fetchPlazas}
                     />
                   ))}
                 </div>
