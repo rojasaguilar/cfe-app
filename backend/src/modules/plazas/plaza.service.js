@@ -6,11 +6,18 @@ import { getPuesto } from "./../puestos/puesto.service.js";
 
 // --- CREAR (Create) ---
 export const createPlaza = async (plazaData) => {
-  const { noPlaza, puestoId, departamentoId } = plazaData;
+  const {
+    noPlaza,
+    puestoId,
+    departamentoId,
+    plazaPadreId = null,
+  } = plazaData ?? {};
 
   await getPuesto(puestoId);
 
   await getDepa(departamentoId);
+
+  if (plazaPadreId) await getPlaza(plazaPadreId);
 
   if (!noPlaza || !puestoId || !departamentoId)
     throw new AppError(
@@ -22,10 +29,10 @@ export const createPlaza = async (plazaData) => {
   const db = Database.getInstance();
 
   const newPlaza = await db.query(
-    `INSERT INTO plaza (noPlaza, puestoId, departamentoId)
-     VALUES ($1, $2, $3)
+    `INSERT INTO plaza (noPlaza, puestoId, departamentoId, plazaPadreId)
+     VALUES ($1, $2, $3, $4)
      RETURNING *`,
-    [noPlaza, puestoId, departamentoId],
+    [noPlaza, puestoId, departamentoId, plazaPadreId],
   );
 
   return newPlaza.rows[0];

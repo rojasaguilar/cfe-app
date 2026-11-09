@@ -1,11 +1,12 @@
 import { api } from "../../services/api.js";
 
-export const createPlaza = async (noplaza, puestoid, departamentoid) => {
+export const createPlaza = async (noplaza, puestoid, departamentoid, plazapadreid) => {
   try {
     const response = await api.post("/plazas", {
       noPlaza: noplaza,
       puestoId: puestoid,
       departamentoId: departamentoid,
+      plazaPadreId:plazapadreid
     });
     return response.data; // Devuelve el JSON de tu backend
   } catch (error) {

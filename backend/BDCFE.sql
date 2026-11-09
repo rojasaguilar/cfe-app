@@ -40,6 +40,7 @@ create table PLAZA (
 	plazaId UUID primary key default gen_random_uuid(),
 	noPlaza varchar(30) unique not null,
 	puestoId UUID references puesto(puestoId) on delete cascade,	
+	plazaPadreId UUID references plaza(plazaId),
 	departamentoId UUID references departamento(departamentoId) on delete cascade,
 	activo boolean default TRUE
 );
@@ -68,5 +69,8 @@ SELECT
 FROM plaza pl
 INNER JOIN puesto pu ON pl.puestoId = pu.puestoId
 LEFT JOIN empleado e ON pl.plazaId = e.plazaId AND e.activo = true
-WHERE pl.departamentoId = '1114d775-44dd-43a7-a064-ca9ad971ab41'
+WHERE pl.departamentoId = 'b4f66c6b-8a7b-4014-86e1-6dd9e52fccdf'
+
+ALTER TABLE plaza 
+ADD COLUMN plazaPadreId UUID REFERENCES plaza(plazaId) ON DELETE SET NULL;
 

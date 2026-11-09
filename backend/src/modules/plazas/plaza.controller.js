@@ -10,6 +10,7 @@ export const createPlaza = catchAsync(async (req, res, next) => {
     noPlaza: data.noPlaza,
     puestoId: data.puestoId,
     departamentoId: data.departamentoId,
+    plazaPadreId: data.plazaPadreId,
   });
 
   if (!newPlaza) {

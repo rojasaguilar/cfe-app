@@ -4,6 +4,7 @@ import { X } from "lucide-react";
 import { createPlaza } from "./../plaza.service.js";
 
 import { getPuestos } from "./../../puestos/puesto.service.js";
+import { getOrganigrama } from "./../../departamento/services/departamento.service.js";
 
 //agregar departamentoid a los props o propon otra cosa mejor
 export const AddPlazaModal = ({
@@ -14,44 +15,58 @@ export const AddPlazaModal = ({
 }) => {
   const [noplaza, setNoPlaza] = useState("");
   const [puestoid, setPuestoId] = useState("");
+  const [plazapadreid, setPlazaPadreId] = useState("");
 
   console.log(noplaza, puestoid, departamentoid);
 
   // Estados para el manejo de la UI y los datos
   const [puestosList, setPuestosList] = useState([]);
+  const [plazasList, setPlazasList] = useState([]); // Nuevo estado para las plazas
   const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingPuestos, setIsLoadingPuestos] = useState(false);
+  const [isFetchingData, setIsFetchingData] = useState(false); // Cargador unificado
   const [error, setError] = useState(null);
 
   // Efecto para cargar los puestos cuando se abre el modal
   useEffect(() => {
-    if (isOpen) {
-      const fetchPuestos = async () => {
+    if (isOpen && departamentoid) {
+      const fetchData = async () => {
         try {
-          setIsLoadingPuestos(true);
-          const response = await getPuestos();
-          // Filtramos solo los puestos activos para la creación de nuevas plazas
-          const puestosActivos = (response.data || response).filter(
+          setIsFetchingData(true);
+
+          // Ejecutamos ambas peticiones al mismo tiempo para mayor velocidad
+          const [puestosRes, plazasRes] = await Promise.all([
+            getPuestos(),
+            getOrganigrama(departamentoid), // Llama a tu endpoint que trae las plazas del depa
+          ]);
+
+          // Filtramos solo los puestos activos
+          const puestosActivos = (puestosRes.data || puestosRes).filter(
             (p) => p.activo,
           );
           setPuestosList(puestosActivos);
+
+          // Guardamos las plazas para el dropdown de jerarquía
+          setPlazasList(plazasRes.data || plazasRes);
         } catch (err) {
-          setError("Error al cargar la lista de puestos.");
+          setError("Error al cargar los datos necesarios.");
         } finally {
-          setIsLoadingPuestos(false);
+          setIsFetchingData(false);
         }
       };
 
-      fetchPuestos();
+      fetchData();
     } else {
       // Limpiamos los estados al cerrar el modal
       setNoPlaza("");
       setPuestoId("");
+      setPlazaPadreId("");
       setError(null);
     }
-  }, [isOpen]);
+  }, [isOpen, departamentoid]);
 
   if (!isOpen) return null;
+
+  console.log("la dta", plazasList);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -59,7 +74,9 @@ export const AddPlazaModal = ({
     setIsLoading(true);
 
     try {
-      await createPlaza(noplaza, puestoid, departamentoid );
+      const padreIdToSend = plazapadreid === "" ? null : plazapadreid;
+
+      await createPlaza(noplaza, puestoid, departamentoid, padreIdToSend);
 
       setNoPlaza("");
       setPuestoId("");
@@ -117,11 +134,11 @@ export const AddPlazaModal = ({
               value={puestoid}
               onChange={(e) => setPuestoId(e.target.value)}
               required
-              disabled={isLoadingPuestos}
+              disabled={isFetchingData}
               className="w-full p-2.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white disabled:bg-gray-100"
             >
               <option value="" disabled>
-                {isLoadingPuestos
+                {isFetchingData
                   ? "Cargando puestos..."
                   : "-- Selecciona un puesto --"}
               </option>
@@ -129,6 +146,33 @@ export const AddPlazaModal = ({
               {puestosList.map((puesto) => (
                 <option key={puesto.puestoid} value={puesto.puestoid}>
                   {puesto.nombrepuesto}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* NUEVO CAMPO: Selector de Plaza Padre (Jerarquía) */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Reporta a (Plaza Superior)
+            </label>
+            <select
+              value={plazapadreid}
+              onChange={(e) => setPlazaPadreId(e.target.value)}
+              disabled={isFetchingData || plazasList.length === 0}
+              className="w-full p-2.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white disabled:bg-gray-100"
+            >
+              <option value="">
+                {isFetchingData
+                  ? "Cargando plazas..."
+                  : plazasList.length === 0
+                    ? "Cabeza de departamento (Sin superior)"
+                    : "-- Selecciona (Dejar vacío si es cabeza) --"}
+              </option>
+
+              {plazasList.map((plaza) => (
+                <option key={plaza.plazaid} value={plaza.plazaid}>
+                  {plaza.nombrepuesto} ({plaza.noplaza})
                 </option>
               ))}
             </select>

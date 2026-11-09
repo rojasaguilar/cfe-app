@@ -194,6 +194,7 @@ export const getOrganigrama = async (departamentoId) => {
    SELECT 
   pl.noPlaza AS noPlaza, 
   pl.plazaId,
+  pl.plazaPadreId,
   pu.nombrePuesto AS nombrePuesto,
   pu.puestoId,
   e.empleadoId,
