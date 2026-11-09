@@ -9,6 +9,8 @@ import {
 } from "./../services/departamento.service.js";
 
 import { PlazaNode } from "./../../plazas/components/PlazaNode";
+import { buildPlazaTree } from "./../../plazas/utils/treeBuilder.js";
+
 export const DepartmentTree = ({
   department,
   onNext,
@@ -22,6 +24,7 @@ export const DepartmentTree = ({
 
   // Nuevo estado para las plazas del departamento actual
   const [plazas, setPlazas] = useState([]);
+  const [plazasTree, setPlazasTree] = useState([]);
   const [isLoadingPlazas, setIsLoadingPlazas] = useState(false);
 
   useEffect(() => {
@@ -29,48 +32,25 @@ export const DepartmentTree = ({
     setEditName("");
 
     // Cargar las plazas al cambiar de departamento
+
     const fetchPlazas = async () => {
       if (!department?.departamentoid) return;
-      setIsLoadingPlazas(true);
-      try {
-        // AQUÍ LLAMAS A TU SERVICIO CON EL ENDPOINT DEL SQL
-        const response = await getOrganigrama(department.departamentoid);
-        console.log("organigrama", response.data);
-        setPlazas(response.data);
-         setIsLoadingPlazas(false);
 
-        // --- MOCK TEMPORAL PARA QUE VEAS EL DISEÑO ---
-        // setTimeout(() => {
-        //   setPlazas([
-        //     {
-        //       plazaId: 1,
-        //       noPlaza: "PLZ-001",
-        //       nombrePuesto: "JEFE DE DEPARTAMENTO",
-        //       empleadoId: "emp1",
-        //       empleado_nombres: "JUAN PEREZ",
-        //       rpe: "9AVN3",
-        //     },
-        //     {
-        //       plazaId: 2,
-        //       noPlaza: "PLZ-002",
-        //       nombrePuesto: "SUPERVISOR DE ZONA",
-        //       empleadoId: null,
-        //       empleado_nombres: null,
-        //       rpe: null,
-        //     },
-        //     {
-        //       plazaId: 3,
-        //       noPlaza: "PLZ-003",
-        //       nombrePuesto: "INGENIERA DE PRUEBAS",
-        //       empleadoId: "emp3",
-        //       empleado_nombres: "MARIA GOMEZ",
-        //       rpe: "8BXM2",
-        //     },
-        //   ]);
-        //   setIsLoadingPlazas(false);
-        // }, 500);
+      try {
+        setIsLoadingPlazas(true);
+        // Traemos la data plana de la base de datos
+        const response = await getOrganigrama(department.departamentoid);
+        const dataPlana = response.data || response;
+
+        // Pasamos la data por nuestra función constructora
+        console.log(dataPlana);
+        const arbol = buildPlazaTree(dataPlana);
+
+        // Guardamos el árbol procesado en el estado
+        setPlazasTree(arbol);
       } catch (error) {
         console.error("Error al cargar plazas", error);
+      } finally {
         setIsLoadingPlazas(false);
       }
     };
@@ -239,34 +219,25 @@ export const DepartmentTree = ({
         </div>
 
         {/* ZONA DEL ORGANIGRAMA (Sustituye la imagen anterior) */}
+        {/* === ZONA DEL ORGANIGRAMA === */}
         <div className="flex-1 overflow-auto p-8 relative">
           {isLoadingPlazas ? (
-            <div className="h-full flex items-center justify-center text-gray-500">
-              Cargando organigrama...
+            <div className="h-full flex items-center justify-center text-gray-500 gap-3">
+              <div className="w-6 h-6 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+              Generando organigrama...
             </div>
           ) : (
-            // MOTOR DEL ÁRBOL
-            <div className="min-w-max flex flex-col items-center pt-8 pb-16">
+            <div className="min-w-max flex flex-col items-center pt-4 pb-16 relative z-10">
               {/* LÍNEAS Y NODOS HIJOS (Las Plazas) */}
-              {plazas.length > 0 ? (
-                <div className="relative flex flex-col items-center">
-                  {/* Tallo principal bajando del departamento */}
-                  {/* <div className="w-px h-8 bg-gray-400"></div> */}
-
-                  {/* Línea horizontal que conecta a todos los hijos */}
-                  <div
-                    className="relative flex justify-between w-full"
-                    style={{ width: `calc(100% - ${100 / plazas.length}%)` }}
-                  >
-                    <div className="absolute top-0 left-0 right-0 h-px bg-gray-400"></div>
-                  </div>
-
-                  {/* Contenedor de las tarjetas */}
-                  <div className="flex gap-8 justify-center mt-0">
-                    {plazas.map((plaza) => (
-                      <PlazaNode key={plaza.plazaId} plaza={plaza} />
-                    ))}
-                  </div>
+              {plazasTree.length > 0 ? (
+                <div className="flex gap-12 mt-0">
+                  {/* Mapeamos los nodos raíces (usualmente es 1, pero mapeamos por si acaso) */}
+                  {plazasTree.map((plazaRaiz) => (
+                    <PlazaNode
+                      key={plazaRaiz.plazaId || plazaRaiz.plazaid}
+                      plaza={plazaRaiz}
+                    />
+                  ))}
                 </div>
               ) : (
                 <div className="mt-12 p-8 border-2 border-dashed border-gray-300 rounded-xl text-gray-400 font-medium bg-white">
