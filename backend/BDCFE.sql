@@ -1,28 +1,3 @@
--- USUARIOS/EMPLEADOS
-CREATE TABLE empleado (
-	empleadoId UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-	rpe VARCHAR (12) NOT NULL,
-	rtt varchar(12),
-	nombres varchar(42) NOT NULL,
-	apellidos varchar(56) NOT NULL,
-	rfc VARCHAR(13) NOT NULL,
-	curp VARCHAR(18) NOT NULL,
-	plazaId UUID unique references plaza(plazaId) on delete cascade,
-	activo boolean DEFAULT TRUE
-);
-
-CREATE TABLE cuenta_usuario (
-    usuarioId UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    empeadoId UUID UNIQUE REFERENCES empleado(empeadoId) ON DELETE CASCADE,
-    email VARCHAR(150) UNIQUE NOT NULL,
-    password VARCHAR(255) NOT NULL,
-    rol VARCHAR(50) DEFAULT 'administrador',
-    ultimo_acceso TIMESTAMP WITH TIME zone,
-    created_at TIMESTAMP WITH TIME zone,
-    passwordChangedAt TIMESTAMP WITH TIME zone,
-    activo boolean DEFAULT true	
-);
-
 --ORGANIGRAMA
 CREATE TABLE departamento (
 	departamentoId UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -44,6 +19,32 @@ create table PLAZA (
 	departamentoId UUID references departamento(departamentoId) on delete cascade,
 	activo boolean default TRUE
 );
+
+-- USUARIOS/EMPLEADOS
+CREATE TABLE empleado (
+	empleadoId UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+	rpe VARCHAR (12) NOT NULL,
+	rtt varchar(12),
+	nombres varchar(42) NOT NULL,
+	apellidos varchar(56) NOT NULL,
+	rfc VARCHAR(13) NOT NULL,
+	curp VARCHAR(18) NOT NULL,
+	plazaId UUID unique references plaza(plazaId) on delete cascade,
+	activo boolean DEFAULT TRUE
+);
+
+CREATE TABLE cuenta_usuario (
+    usuarioId UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    empleadoId UUID UNIQUE REFERENCES empleado(empleadoId) ON DELETE CASCADE,
+    email VARCHAR(150) UNIQUE NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    rol VARCHAR(50) DEFAULT 'administrador',
+    ultimo_acceso TIMESTAMP WITH TIME zone,
+    created_at TIMESTAMP WITH TIME zone,
+    passwordChangedAt TIMESTAMP WITH TIME zone,
+    activo boolean DEFAULT true	
+);
+
 
 
 --UTILS

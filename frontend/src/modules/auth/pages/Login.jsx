@@ -82,6 +82,7 @@ export const Login = () => {
             {isLoading ? "Verificando..." : "Entrar"}
           </button>
         </form>
+        <a href="/signup">Registrate</a>
       </div>
     </div>
   );
