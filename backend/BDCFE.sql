@@ -58,6 +58,7 @@ alter table cuenta_usuario add column  passwordChangedAt TIMESTAMP WITH TIME zon
 alter table empleado add column plazaId UUID unique references plaza(plazaId) on delete cascade;
 
 
+
 SELECT 
   pl.noPlaza AS noPlaza, 
   pl.plazaId,
@@ -76,4 +77,6 @@ ALTER TABLE plaza
 ADD COLUMN plazaPadreId UUID REFERENCES plaza(plazaId) ON DELETE SET NULL;
 
 delete from plaza where activo = false
+
+
 

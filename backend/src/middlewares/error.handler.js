@@ -87,6 +87,7 @@ export default (err, req, res, next) => {
 
   if (envVars.NODE_ENV === "development") {
     sendErrorDev(err, res);
+    console.log(err);
   } else if (envVars.NODE_ENV === "production") {
     // Al copiar el error en JS, message, name y code pueden perderse en la desestructuración.
     // Es vital extraerlos manualmente.
@@ -110,5 +111,6 @@ export default (err, req, res, next) => {
     if (error.name === "TokenExpiredError") error = handleJWTExpired();
 
     sendErrorProd(error, res);
+    console.log(err);
   }
 };

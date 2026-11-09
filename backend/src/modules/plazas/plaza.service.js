@@ -124,8 +124,10 @@ export const updatePlaza = async (plazaId, plazaData) => {
   if (noplaza) fieldsToUpdate.noplaza = noplaza;
   if (puestoid) fieldsToUpdate.puestoid = puestoid;
   // if (plazapadreid != null)
-  fieldsToUpdate.plazapadreid = plazapadreid;
-  fieldsToUpdate.activo = activo;
+  // if (plazapadreid !== undefined && plazapadreid !== null)
+    fieldsToUpdate.plazapadreid = plazapadreid;
+
+  if (activo !== undefined && activo !== null) fieldsToUpdate.activo = activo;
 
   const keys = Object.keys(fieldsToUpdate);
 

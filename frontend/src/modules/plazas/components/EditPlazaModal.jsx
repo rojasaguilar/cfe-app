@@ -86,6 +86,7 @@ export const EditPlazaModal = ({
         noplaza,
         puestoid,
         plazapadreid: padreIdToSend,
+        // plaza
       });
 
       onSuccess();
