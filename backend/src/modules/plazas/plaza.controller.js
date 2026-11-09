@@ -50,16 +50,19 @@ export const getAllPlazas = catchAsync(async (req, res, next) => {
 
 // --- ACTUALIZAR ---
 export const updatePlaza = catchAsync(async (req, res, next) => {
-  const { puestoId } = req.params;
-  const { nombrePuesto } = req.body;
+  const { plazaId } = req.params;
 
-  const updatedPuesto = await plazaService.updatePuesto(puestoId, {
-    nombrePuesto,
+  const { noPlaza= null, puestoId = null, plazaPadreId = null } = req.body ?? {};
+
+  const updatedPlaza = await plazaService.updatePlaza(plazaId, {
+    noPlaza,
+    puestoId,
+    plazaPadreId,
   });
 
   res.status(200).json({
     success: true,
-    data: updatedPuesto,
+    data: updatedPlaza,
   });
 });
 

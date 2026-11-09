@@ -98,8 +98,6 @@ export const getAllPlazas = async (params = {}) => {
 
 // --- ACTUALIZAR (Update) ---
 export const updatePlaza = async (plazaId, plazaData) => {
-  const { noPlaza } = plazaData;
-
   if (!plazaId) {
     throw new AppError(
       "plaza_service",
@@ -108,26 +106,71 @@ export const updatePlaza = async (plazaId, plazaData) => {
     );
   }
 
-  if (!noPlaza) {
-    throw new AppError("Proporciona al menos un dato para actualizar.", 400);
+  if (!plazaData) {
+    throw new AppError(
+      "plaza_service",
+      "Proporciona al menos un dato para actualizar.",
+      400,
+    );
   }
+
+  // 1. Extraemos los campos permitidos del objeto entrante
+  const { noPlaza, puestoId, plazaPadreId } = plazaData;
+  const fieldsToUpdate = {};
+
+  // 2. Filtramos: Si es null o undefined, lo ignoramos por completo
+  if (noPlaza != null) fieldsToUpdate.noPlaza = noPlaza;
+  if (puestoId != null) fieldsToUpdate.puestoId = puestoId;
+  if (plazaPadreId != null) fieldsToUpdate.plazaPadreId = plazaPadreId;
+
+  const keys = Object.keys(fieldsToUpdate);
+
+  // Verificamos que quede al menos un campo válido para no romper la consulta SQL
+  if (keys.length === 0) {
+    throw new AppError(
+      "plaza_service",
+      "No hay campos válidos (no nulos) para actualizar.",
+      400,
+    );
+  }
+
+  // 3. Construimos el query dinámico y el arreglo de values limpio
+  const setClauses = [];
+  const values = [];
+  let index = 1;
+
+  for (const key of keys) {
+    // Si tus columnas requieren comillas por el camelCase, usa: `"${key}" = $${index}`
+    setClauses.push(`${key} = $${index}`);
+    values.push(fieldsToUpdate[key]);
+    index++;
+  }
+
+  // Agregamos el plazaId como el último parámetro para el WHERE
+  values.push(plazaId);
+
+  console.log(setClauses, values);
+  const queryString = `
+    UPDATE plaza 
+    SET ${setClauses.join(", ")}
+    WHERE "plazaid" = $${index} 
+    RETURNING *
+  `;
 
   const db = Database.getInstance();
 
-  // 4. Actualizar
-  const updatedPuesto = await db.query(
-    `UPDATE plaza 
-     SET noPlaza = $1
-     WHERE plazaId = $2 
-     RETURNING *`,
-    [noPlaza, plazaId],
-  );
+  // 4. Ejecutamos la actualización
+  const updatedPlaza = await db.query(queryString, values);
 
-  if (updatedPuesto.rowCount === 0) {
-    throw new AppError("La plaza que intentas actualizar no existe.", 404);
+  if (updatedPlaza.rowCount === 0) {
+    throw new AppError(
+      "plaza_service",
+      "La plaza que intentas actualizar no existe.",
+      404,
+    );
   }
 
-  return updatedPuesto.rows[0];
+  return updatedPlaza.rows[0];
 };
 
 // --- ELIMINAR LÓGICAMENTE (Soft Delete) ---
