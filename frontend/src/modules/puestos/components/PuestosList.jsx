@@ -81,12 +81,12 @@ export const PuestosList = ({ puestos = [], onSuccess }) => {
 
               <div className="flex items-center gap-1 border-l border-gray-200 pl-4">
                 <Tooltip title="Editar">
-                  <IconButton
+                  {/* <IconButton
                     size="small"
                     className="text-blue-600 hover:bg-blue-50"
                   >
                     <Edit2 size={18} />
-                  </IconButton>
+                  </IconButton> */}
                 </Tooltip>
                 <Tooltip title={puesto.activo ? "Desactivar" : "Activar"}>
                   {/* Agregamos el onClick aquí */}

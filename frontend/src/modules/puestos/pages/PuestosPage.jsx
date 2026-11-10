@@ -47,9 +47,9 @@ export const PuestosPage = () => {
           <h1 className="text-2xl font-bold text-gray-800 tracking-tight">
             Catálogo de Puestos
           </h1>
-          <p className="text-sm text-gray-500 mt-1">
+          {/* <p className="text-sm text-gray-500 mt-1">
             Gestiona los puestos disponibles para la Zona de Transmisión.
-          </p>
+          </p> */}
         </div>
 
         <div className="flex items-center gap-4">
