@@ -10,7 +10,7 @@ import {
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
-import { Outlet, Link } from "react-router-dom"; 
+import { Outlet, Link } from "react-router-dom";
 
 export const Layout = () => {
   const [openMenus, setOpenMenus] = useState({});
@@ -31,29 +31,33 @@ export const Layout = () => {
   };
 
   const navItems = [
-    { 
-      id: "home", 
-      icon: Home, 
-      label: "Inicio", 
-      href: "/home" 
+    {
+      id: "home",
+      icon: Home,
+      label: "Inicio",
+      href: "/home",
     },
-    { 
-      id: "organigrama", 
-      icon: Network, 
-      label: "Organigrama", 
+    {
+      id: "organigrama",
+      icon: Network,
+      label: "Organigrama",
       subItems: [
         { label: "Departamentos", href: "/organigrama" },
-        { label: "Puestos", href: "/puestos" }
-      ]
+        { label: "Puestos", href: "/puestos" },
+      ],
+    },
+    {
+      id: "empleado",
+      icon: Users,
+      label: "Empleados",
+      href: "/empleados",
     },
   ];
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 font-sans">
       <div className="flex flex-1 overflow-hidden">
-        
         <aside className="w-28 bg-white border-r border-gray-200 flex flex-col items-center py-6 shadow-sm z-10 overflow-y-auto">
-          
           <nav className="flex flex-col gap-2 w-full">
             {navItems.map((item) => {
               const Icon = item.icon;
@@ -72,7 +76,11 @@ export const Layout = () => {
                         <span className="text-[10px] text-center leading-tight">
                           {item.label}
                         </span>
-                        {isOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                        {isOpen ? (
+                          <ChevronUp size={12} />
+                        ) : (
+                          <ChevronDown size={12} />
+                        )}
                       </div>
                     </button>
 
