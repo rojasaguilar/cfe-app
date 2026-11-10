@@ -128,8 +128,6 @@ export const PlazaNode = ({
     try {
       await assignEmpleado(empleadoId, plazaId);
 
-     
-
       if (onSuccess) onSuccess();
     } catch (error) {
       alert(error.message || "Error al cambiar el estado de la plaza.");
@@ -148,7 +146,12 @@ export const PlazaNode = ({
   return (
     <div className="flex flex-col items-center">
       {/* 1. TARJETA DE LA PLAZA */}
-      <div className="flex flex-col items-center relative z-10" ref={menuRef}>
+      <div
+        className={`flex flex-col items-center relative ${
+          isMenuOpen ? "z-[100]" : "z-10"
+        }`}
+        ref={menuRef}
+      >
         <div className="w-px h-6 bg-gray-400"></div>
 
         <div
@@ -215,7 +218,7 @@ export const PlazaNode = ({
 
         {/* 2. MENÚ FLOTANTE */}
         {isMenuOpen && (
-          <div className="absolute top-full mt-2 w-48 bg-white border border-gray-200 rounded-xl shadow-xl z-30 py-1.5 animate-in fade-in slide-in-from-top-2 duration-150 flex flex-col">
+          <div className="absolute top-full mt-2 w-48 bg-white border border-gray-200 rounded-xl shadow-xl z-[110] py-1.5 animate-in fade-in slide-in-from-top-2 duration-150 flex flex-col">
             {/* Editar */}
             <button
               onClick={() => {
