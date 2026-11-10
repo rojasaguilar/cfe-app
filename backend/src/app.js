@@ -8,6 +8,7 @@ import depaRouter from "./modules/departamentos/depa.router.js";
 import globalErrorHandler from "./middlewares/error.handler.js";
 import puestoRouter from "./modules/puestos/puesto.router.js";
 import plazaRouter from "./modules/plazas/plaza.router.js";
+import empleadoRouter from "./modules/empleados/empleado.router.js";
 
 import envVars from "./config/config.dotenv.js";
 
@@ -15,7 +16,7 @@ const app = express();
 
 app.use(express.json());
 app.use(cookieParser());
-app.use(morgan('dev'))
+app.use(morgan("dev"));
 
 app.use(
   cors({
@@ -29,6 +30,7 @@ app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/departamentos", depaRouter);
 app.use("/api/v1/puestos", puestoRouter);
 app.use("/api/v1/plazas", plazaRouter);
+app.use("/api/v1/empleados", empleadoRouter);
 
 app.use(globalErrorHandler);
 

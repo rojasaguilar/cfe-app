@@ -30,6 +30,20 @@ export const createEmpleado = async (data) => {
   }
 };
 
+export const assignEmpleado = async (empleadoId, plazaId) => {
+  try {
+    const response = await api.patch(`/empleados/${empleadoId}/assign`, {
+      plazaId: plazaId,
+    });
+    return response.data; // Devuelve el JSON de tu backend
+  } catch (error) {
+    if (error.response) {
+      throw new Error(error.response.data.message || "Error al iniciar sesión");
+    }
+    throw new Error("Error de conexión al servidor");
+  }
+};
+
 export const deactivateDepartamento = async (departamentoId) => {
   try {
     const response = await api.delete(`/departamentos/${departamentoId}`);

@@ -1,82 +1,110 @@
 --ORGANIGRAMA
-CREATE TABLE departamento (
-	departamentoId UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-	nombre VARCHAR (56) unique NOT NULL,
-	activo boolean DEFAULT TRUE
+create table departamento (
+	departamentoId UUID primary key default gen_random_uuid(),
+	nombre VARCHAR (56) unique not null,
+	activo boolean default true
 );
 
 create table PUESTO (
 	puestoId UUID primary key default gen_random_uuid(),
 	nombrePuesto varchar(50) not null,
-	activo boolean default TRUE
+	activo boolean default true
 );
 
 create table PLAZA (
 	plazaId UUID primary key default gen_random_uuid(),
 	noPlaza varchar(30) unique not null,
-	puestoId UUID references puesto(puestoId) on delete cascade,	
+	puestoId UUID references puesto(puestoId) on
+delete
+	cascade,	
 	plazaPadreId UUID references plaza(plazaId),
-	departamentoId UUID references departamento(departamentoId) on delete cascade,
-	activo boolean default TRUE
+	departamentoId UUID references departamento(departamentoId) on
+	delete
+		cascade,
+		activo boolean default true
 );
-
 -- USUARIOS/EMPLEADOS
-CREATE TABLE empleado (
-	empleadoId UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-	rpe VARCHAR (12) NOT NULL,
-	rtt varchar(12),
-	nombres varchar(42) NOT NULL,
-	apellidos varchar(56) NOT NULL,
-	rfc VARCHAR(13) NOT NULL,
-	curp VARCHAR(18) NOT NULL,
-	plazaId UUID unique references plaza(plazaId) on delete cascade,
-	activo boolean DEFAULT TRUE
+create table empleado (
+	empleadoId UUID primary key default gen_random_uuid(),
+	rpe VARCHAR (12) unique not null,
+	rtt varchar(12) unique,
+	nombres varchar(42) unique not null,
+	apellidos varchar(56) not null,
+	rfc VARCHAR(13) unique not null,
+	curp VARCHAR(18) unique not null,
+	plazaId UUID unique references plaza(plazaId) on
+delete
+	cascade,
+	activo boolean default true,
+	
+	constraint chk_empleado_rtt_rpe
+check(
+		(rpe is NULL)
+		<>
+		(rtt is null)
+	 )	
 );
 
-CREATE TABLE cuenta_usuario (
-    usuarioId UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    empleadoId UUID UNIQUE REFERENCES empleado(empleadoId) ON DELETE CASCADE,
-    email VARCHAR(150) UNIQUE NOT NULL,
-    password VARCHAR(255) NOT NULL,
-    rol VARCHAR(50) DEFAULT 'administrador',
-    ultimo_acceso TIMESTAMP WITH TIME zone,
-    created_at TIMESTAMP WITH TIME zone,
-    passwordChangedAt TIMESTAMP WITH TIME zone,
-    activo boolean DEFAULT true	
+create table cuenta_usuario (
+    usuarioId UUID primary key default gen_random_uuid(),
+    empleadoId UUID unique references empleado(empleadoId) on
+delete
+	cascade,
+	email VARCHAR(150) unique not null,
+	password VARCHAR(255) not null,
+	rol VARCHAR(50) default 'administrador',
+	ultimo_acceso TIMESTAMP with TIME zone,
+	created_at TIMESTAMP with TIME zone,
+	passwordChangedAt TIMESTAMP with TIME zone,
+	activo boolean default true	
 );
-
-
-
 --UTILS
 
-UPDATE cuenta_usuario 
-SET passwordChangedAt = NOW() 
-WHERE usuarioId = '4ec4db62-a452-45b0-bc5a-3febe46dd6ad';
+update
+	cuenta_usuario
+set
+	passwordChangedAt = NOW()
+where
+	usuarioId = '4ec4db62-a452-45b0-bc5a-3febe46dd6ad';
 
-alter table cuenta_usuario add column  passwordChangedAt TIMESTAMP WITH TIME zone;
+alter table cuenta_usuario add column passwordChangedAt TIMESTAMP with TIME zone;
 
-alter table empleado add column plazaId UUID unique references plaza(plazaId) on delete cascade;
+alter table empleado add column plazaId UUID unique references plaza(plazaId) on
+delete
+	cascade;
 
+select
+	pl.noPlaza as noPlaza,
+	pl.plazaId,
+	pu.nombrePuesto as nombrePuesto,
+	pu.puestoId,
+	e.empleadoId,
+	e.rpe as rpe,
+	e.rtt as rtt,
+	e.nombres as empleado_nombres
+from
+	plaza pl
+inner join puesto pu on
+	pl.puestoId = pu.puestoId
+left join empleado e on
+	pl.plazaId = e.plazaId
+	and e.activo = true
+where
+	pl.departamentoId = 'b4f66c6b-8a7b-4014-86e1-6dd9e52fccdf'
 
+alter table plaza 
+add column plazaPadreId UUID references plaza(plazaId) on
+	delete
+	set
+	null;
 
-SELECT 
-  pl.noPlaza AS noPlaza, 
-  pl.plazaId,
-  pu.nombrePuesto AS nombrePuesto,
-  pu.puestoId,
-  e.empleadoId,
-  e.rpe AS rpe,
-  e.rtt as rtt,
-  e.nombres AS empleado_nombres
-FROM plaza pl
-INNER JOIN puesto pu ON pl.puestoId = pu.puestoId
-LEFT JOIN empleado e ON pl.plazaId = e.plazaId AND e.activo = true
-WHERE pl.departamentoId = 'b4f66c6b-8a7b-4014-86e1-6dd9e52fccdf'
+alter table empleado 
+add unique (curp);
 
-ALTER TABLE plaza 
-ADD COLUMN plazaPadreId UUID REFERENCES plaza(plazaId) ON DELETE SET NULL;
-
-delete from plaza where activo = false
-
-
-
+alter table empleado
+add constraint chk_empleado_rtt_rpe
+check(
+(rpe is not null and rtt is null)
+or
+(rpe is null and rtt is not null)
+)
