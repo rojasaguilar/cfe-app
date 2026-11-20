@@ -4,13 +4,7 @@ import { getEmpleado } from "../services/empleado.service";
 import { DatosGeneralesCard } from "../components/DatosGeneralesCard";
 import { BateriasCard } from "../components/BateriasCard";
 import { ExpedienteTabsCard } from "../components/ExpedienteTabsCard";
-import {
-  Alert,
-  Avatar,
-  Box,
-  Button,
-  CircularProgress,
-} from "@mui/material";
+import { Alert, Avatar, Box, Button, CircularProgress } from "@mui/material";
 import { ArrowLeft, IdCard } from "lucide-react";
 
 export const EmpleadoViewPage = () => {
@@ -37,7 +31,8 @@ export const EmpleadoViewPage = () => {
         console.error("Error al obtener empleado:", err);
         if (active) {
           setError(
-            err?.message || "No fue posible cargar la información del empleado.",
+            err?.message ||
+              "No fue posible cargar la información del empleado.",
           );
         }
       } finally {
@@ -92,23 +87,6 @@ export const EmpleadoViewPage = () => {
   return (
     <main className="max-w-7xl mx-auto p-4 sm:p-6 space-y-6">
       <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        {/* <div className="flex items-center gap-3">
-          <Avatar sx={{ bgcolor: "#2563eb", width: 44, height: 44 }}>
-            <IdCard size={20} />
-          </Avatar>
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
-              {fullName}
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-500">
-              Expediente laboral · ID:{" "}
-              <span className="font-mono text-slate-700">
-                {empleado.empleadoid || empleadoid}
-              </span>
-            </p>
-          </div>
-        </div> */}
-
         <Button
           startIcon={<ArrowLeft size={16} />}
           variant="outlined"

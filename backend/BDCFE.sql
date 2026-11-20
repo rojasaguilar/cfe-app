@@ -63,7 +63,7 @@ CREATE TABLE bateria (
   bateriaId UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   puestoId UUID NOT NULL REFERENCES puesto(puestoId),
   departamentoId UUID NOT NULL REFERENCES departamento(departamentoId),
-  puestoSuperiorId UUID REFERENCES puesto(puestoId) ON DELETE SET NULL,
+--  puestoSuperiorId UUID REFERENCES puesto(puestoId) ON DELETE SET NULL, DELETED INCONSISTENCY WITH PLAZA-PUESTO-PUESTOSUPERIOR
   estado BOOLEAN NOT NULL DEFAULT true,
 
   -- Garantiza que no haya dos baterías con el mismo puesto y departamento
@@ -138,3 +138,46 @@ check(
 or
 (rpe is null and rtt is not null)
 )
+
+
+INSERT INTO curso (
+  codigoCurso,
+  nombre,
+  horasPracticas,
+  horasTeoria,
+  generaDC3,
+  estado
+)
+VALUES
+  (
+    'CFE-SEG-001',
+    'Seguridad e higiene en subestaciones eléctricas',
+    16,
+    8,
+    true,
+    true
+  ),
+  (
+    'CFE-MAT-004',
+    'Mantenimiento preventivo de transformadores de potencia',
+    20,
+    12,
+    true,
+    true
+  ),
+  (
+    'CFE-CAP-012',
+    'Procedimientos de consignación y libranza en líneas de transmisión',
+    12,
+    8,
+    true,
+    true
+  ),
+  (
+    'CFE-NOR-008',
+    'Normatividad técnica y operación del sistema eléctrico nacional',
+    0,
+    16,
+    false,
+    true
+  );
