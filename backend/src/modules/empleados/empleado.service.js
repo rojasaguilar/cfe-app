@@ -22,25 +22,25 @@ export const createEmpleado = async (empleadoData) => {
   return newEmpleado.rows[0];
 };
 
-// --- LEER UNO (Read) ---
-export const getPuesto = async (puestoId) => {
-  if (!puestoId)
+export const getEmpleado = async (empleadoId) => {
+  if (!empleadoId)
     throw new AppError(
-      "puesto_service",
+      "empleado_service",
       "Por favor, ingresa todos los campos",
       404,
     );
 
   const db = Database.getInstance();
 
-  const depa = await db.query("SELECT * FROM puesto WHERE puestoId = $1", [
-    puestoId,
-  ]);
+  const empleado = await db.query(
+    "SELECT * FROM empleado WHERE empleadoId = $1",
+    [empleadoId],
+  );
 
-  if (depa.rowCount === 0)
-    throw new AppError("puesto_service", "El puesto no existe", 404);
+  if (empleado.rowCount === 0)
+    throw new AppError("empleado_service", "El empleado no existe", 404);
 
-  return depa.rows[0];
+  return empleado.rows[0];
 };
 
 export const getAllEmpleados = async (params = {}) => {
@@ -51,7 +51,7 @@ export const getAllEmpleados = async (params = {}) => {
   const values = [];
   let paramCounter = 1;
 
-  const camposPermitidos = ["nombrePuesto", "puestoId", "activo"];
+  const camposPermitidos = ["nombrePuesto", "empleadoId", "activo"];
 
   // 3. Construcción dinámica de filtros
   for (const [key, value] of Object.entries(params)) {
@@ -80,58 +80,27 @@ export const getAllEmpleados = async (params = {}) => {
   return empleados.rows;
 };
 
-// --- ACTUALIZAR (Update) ---
-export const updatePuesto = async (puestoId, puestoData) => {
-  // Extraemos ambos campos. Usamos ?? {} por si puestoData es undefined
-  const { nombrePuesto, activo } = puestoData ?? {};
-
-  if (!puestoId) {
+export const updateEmpleado = async (empleadoId, empleadoData) => {
+  if (!empleadoId) {
     throw new AppError(
+      "empleado_service",
       "Por favor, proporciona el ID del puesto a actualizar.",
       400,
     );
   }
-
-  // Verificamos si ambos son nulos o undefined
-  if (nombrePuesto == null && activo == null) {
+  // console.log(empleadoData);
+  if (empleadoData == {})
     throw new AppError(
-      "puesto_service",
-      "Proporciona al menos un dato para actualizar.",
+      "empleado_service",
+      "Por favor, proporciona un dato para actualizar.",
       400,
     );
-  }
 
   const db = Database.getInstance();
-  const fieldsToUpdate = {};
-
-  // 1. Procesar y validar nombrePuesto (solo si se envió)
-  if (nombrePuesto != null) {
-    const nuevoNombre = nombrePuesto.toLowerCase().trim();
-
-    // Verificar que el nuevo nombre no colisione con OTRO puesto
-    const nameExists = await db.query(
-      `SELECT "puestoId" FROM puesto WHERE "nombrePuesto" = $1 AND "puestoId" != $2`,
-      [nuevoNombre, puestoId],
-    );
-
-    if (nameExists.rowCount > 0) {
-      throw new AppError(
-        "puesto_service",
-        "Ya existe otro puesto con ese nombre.",
-        409,
-      ); // 409 Conflict
-    }
-
-    fieldsToUpdate.nombrePuesto = nuevoNombre;
-  }
-
-  // 2. Procesar activo (solo si se envió)
-  if (activo != null) {
-    fieldsToUpdate.activo = activo;
-  }
+  // const fieldsToUpdate = {};
 
   // 3. Construir dinámicamente el SET y los Values
-  const keys = Object.keys(fieldsToUpdate);
+  const keys = Object.keys(empleadoData);
   const setClauses = [];
   const values = [];
   let index = 1;
@@ -140,17 +109,17 @@ export const updatePuesto = async (puestoId, puestoData) => {
     // Si tus tablas usan camelCase en Postgres, asegúralo con comillas: "${key}"
     // Si usas todo en minúsculas en tu BD, puedes quitarle las comillas
     setClauses.push(`"${key}" = $${index}`);
-    values.push(fieldsToUpdate[key]);
+    values.push(empleadoData[key]);
     index++;
   }
 
-  // Agregamos el puestoId al final de los values para el WHERE
-  values.push(puestoId);
+  // Agregamos el empleadoId al final de los values para el WHERE
+  values.push(empleadoId);
 
   const queryString = `
-    UPDATE puesto 
+    UPDATE empleado 
     SET ${setClauses.join(", ")}
-    WHERE "puestoid" = $${index} 
+    WHERE "empleadoid" = $${index} 
     RETURNING *
   `;
 
@@ -158,17 +127,17 @@ export const updatePuesto = async (puestoId, puestoData) => {
   const updatedPuesto = await db.query(queryString, values);
 
   if (updatedPuesto.rowCount === 0) {
-    throw new AppError("El puesto que intentas actualizar no existe.", 404);
+    throw new AppError("El empleado que intentas actualizar no existe.", 404);
   }
 
   return updatedPuesto.rows[0];
 };
 
-// --- ELIMINAR LÓGICAMENTE (Soft Delete) ---
-export const deletePuesto = async (puestoId) => {
-  if (!puestoId) {
+export const deleteEmpleado = async (empleadoId) => {
+  if (!empleadoId) {
     throw new AppError(
-      "Por favor, proporciona el ID del puesto a eliminar.",
+      "empleado_service",
+      "Por favor, proporciona el ID del empleado a eliminar.",
       400,
     );
   }
@@ -176,35 +145,35 @@ export const deletePuesto = async (puestoId) => {
   const db = Database.getInstance();
 
   const plazasActivasCheck = await db.query(
-    `SELECT plazaId 
-     FROM plaza 
-     WHERE puestoId = $1 AND activo = true 
+    `SELECT empleadoId 
+     FROM empleado 
+     WHERE empleadoId = $1 AND activo = true AND plazaId IS NOT NULL
      LIMIT 1`,
-    [puestoId],
+    [empleadoId],
   );
 
   if (plazasActivasCheck.rowCount > 0) {
     throw new AppError(
-      "puesto_service",
-      "No se puede desactivar este puesto porque actualmente hay plazas activas que lo están utilizando. Haz los cambios pertientes para poder desactivar",
+      "empleado_service",
+      "No se puede desactivar este empleado porque actualmente está ocupando una plaza. Haz los cambios pertientes para poder desactivar",
       409,
     );
   }
 
   // Actualizamos el campo 'activo' a false en lugar de hacer un DELETE FROM
-  const deletedPuesto = await db.query(
-    `UPDATE puesto 
+  const deletedEmpleado = await db.query(
+    `UPDATE empleado 
      SET activo = false 
-     WHERE puestoId = $1 
+     WHERE empleadoId = $1 
      RETURNING *`,
-    [puestoId],
+    [empleadoId],
   );
 
-  if (deletedPuesto.rowCount === 0) {
-    throw new AppError("El puesto no existe o ya fue eliminado.", 404);
+  if (deletedEmpleado.rowCount === 0) {
+    throw new AppError("El empleado no existe o ya fue eliminado.", 404);
   }
 
-  return deletedPuesto.rows[0];
+  return deletedEmpleado.rows[0];
 };
 
 export const assignPlaza = async (empleadoId, plazaId) => {
@@ -228,7 +197,7 @@ export const assignPlaza = async (empleadoId, plazaId) => {
 
   if (isPlazaDesactivada.rowCount > 0) {
     throw new AppError(
-      "puesto_service",
+      "empleado_service",
       "No se puede asignar esta plaza porque está desactivada",
     );
   }

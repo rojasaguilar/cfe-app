@@ -9,6 +9,7 @@ import { Signup } from "./modules/auth/pages/SignUp";
 import { LandingPage } from "./components/Landing";
 import { PuestosPage } from "./modules/puestos/pages/PuestosPage";
 import { EmpleadosPage } from "./modules/empleados/pages/EmpleadosPage";
+import { EmpleadoViewPage } from "./modules/empleados/pages/EmpleadoViewPage";
 
 function App() {
   return (
@@ -33,6 +34,11 @@ function App() {
               />
 
               <Route path="/empleados" element={<EmpleadosPage />} />
+
+              <Route
+                path="/empleados/:empleadoid"
+                element={<EmpleadoViewPage />}
+              />
 
               {/* Puedes seguir agregando más rutas que usen el Layout aquí */}
               <Route path="/organigrama" element={<OrganigramaPage />} />

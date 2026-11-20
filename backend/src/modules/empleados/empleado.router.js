@@ -4,6 +4,7 @@ import { protect, restrictTo } from "../auth/auth.controller.js";
 
 import { validate } from "../../middlewares/validate.data.js";
 import { createEmpleadoSchema } from "./dtos/create.empleado.dto.js";
+import { updateEmpleadoSchema } from "./dtos/update.empleado.dto.js";
 
 const router = express.Router();
 
@@ -18,12 +19,20 @@ router
     empleadoController.createEmpleado,
   );
 
-// router
-//   .route("/:empleadoId")
-//   .get(empleadoController.getEmpleado)
-//   .patch(restrictTo("administrador"), empleadoController.updateEmpleado)
-//   .delete(restrictTo("administrador"), empleadoController.deleteEmpleado);
+router
+  .route("/:empleadoId")
+  .get(empleadoController.getEmpleado)
+  .patch(
+    restrictTo("administrador"),
+    validate(updateEmpleadoSchema),
+    empleadoController.updateEmpleado,
+  )
+.delete(restrictTo("administrador"), empleadoController.deleteEmpleado);
 
-router.patch("/:empleadoId/assign", empleadoController.assignPlaza)
+router.patch(
+  "/:empleadoId/assign",
+  restrictTo("administrador"),
+  empleadoController.assignPlaza,
+);
 
 export default router;

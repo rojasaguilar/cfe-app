@@ -14,6 +14,21 @@ export const getEmpleados = async () => {
   }
 };
 
+export const getEmpleado = async (empleadoId) => {
+  try {
+    const response = await api.get(`/empleados/${empleadoId}`);
+    return response.data; // Devuelve el JSON de tu backend
+  } catch (error) {
+    if (error.response) {
+      throw new Error(
+        error.response.data.message ||
+          "Error de servidor, intenta de nuevo mas tarde",
+      );
+    }
+    throw new Error("Error de conexión al servidor");
+  }
+};
+
 export const createEmpleado = async (data) => {
   try {
     const resultData = createEmpleadoSchema.safeParse(data);
@@ -24,7 +39,10 @@ export const createEmpleado = async (data) => {
     return response.data; // Devuelve el JSON de tu backend
   } catch (error) {
     if (error.response) {
-      throw new Error(error.response.data.message || "Error al iniciar sesión");
+      throw new Error(
+        error.response.data.message ||
+          "Error de servidor, intenta de nuevo mas tarde",
+      );
     }
     throw new Error("Error de conexión al servidor");
   }
@@ -38,7 +56,10 @@ export const assignEmpleado = async (empleadoId, plazaId) => {
     return response.data; // Devuelve el JSON de tu backend
   } catch (error) {
     if (error.response) {
-      throw new Error(error.response.data.message || "Error al iniciar sesión");
+      throw new Error(
+        error.response.data.message ||
+          "Error de servidor, intenta de nuevo mas tarde",
+      );
     }
     throw new Error("Error de conexión al servidor");
   }
@@ -50,7 +71,10 @@ export const deactivateDepartamento = async (departamentoId) => {
     return response.data; // Devuelve el JSON de tu backend
   } catch (error) {
     if (error.response) {
-      throw new Error(error.response.data.message || "Error al iniciar sesión");
+      throw new Error(
+        error.response.data.message ||
+          "Error de servidor, intenta de nuevo mas tarde",
+      );
     }
     throw new Error("Error de conexión al servidor");
   }
@@ -64,7 +88,10 @@ export const activateDepartamento = async (departamentoId) => {
     return response.data; // Devuelve el JSON de tu backend
   } catch (error) {
     if (error.response) {
-      throw new Error(error.response.data.message || "Error al iniciar sesión");
+      throw new Error(
+        error.response.data.message ||
+          "Error de servidor, intenta de nuevo mas tarde",
+      );
     }
     throw new Error("Error de conexión al servidor");
   }

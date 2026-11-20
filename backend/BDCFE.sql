@@ -58,6 +58,36 @@ delete
 	passwordChangedAt TIMESTAMP with TIME zone,
 	activo boolean default true	
 );
+
+CREATE TABLE bateria (
+  bateriaId UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  puestoId UUID NOT NULL REFERENCES puesto(puestoId),
+  departamentoId UUID NOT NULL REFERENCES departamento(departamentoId),
+  puestoSuperiorId UUID REFERENCES puesto(puestoId) ON DELETE SET NULL,
+  estado BOOLEAN NOT NULL DEFAULT true,
+
+  -- Garantiza que no haya dos baterías con el mismo puesto y departamento
+  CONSTRAINT uq_bateria_puesto_departamento UNIQUE (puestoId, departamentoId)
+);
+
+create table curso (
+ cursoId UUID primary key default gen_random_uuid(),
+ codigoCurso varchar(40) unique not null,
+ nombre varchar(200) not null,
+ horasPracticas smallint not null,
+ horasTeoria smallint not null,
+ generaDC3 boolean not null,	
+ estado BOOLEAN not null default true
+);
+
+CREATE TABLE curso_bateria (
+  bateriaId UUID NOT NULL REFERENCES bateria(bateriaId) ON DELETE CASCADE,
+  cursoId UUID NOT NULL REFERENCES curso(cursoId) ON DELETE CASCADE,
+  estado BOOLEAN NOT NULL DEFAULT true,
+
+  CONSTRAINT pk_curso_bateria PRIMARY KEY (bateriaId, cursoId)
+);
+
 --UTILS
 
 update

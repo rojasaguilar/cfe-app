@@ -25,19 +25,17 @@ export const createEmpleado = catchAsync(async (req, res, next) => {
   });
 });
 
-// --- OBTENER UNO ---
-export const getPuesto = catchAsync(async (req, res, next) => {
-  const { puestoId } = req.params;
+export const getEmpleado = catchAsync(async (req, res, next) => {
+  const { empleadoId } = req.params;
 
-  const puesto = await empleadoService.getPuesto(puestoId);
+  const empelado = await empleadoService.getEmpleado(empleadoId);
 
   res.status(200).json({
     success: true,
-    data: puesto,
+    data: empelado,
   });
 });
 
-// --- OBTENER TODOS ---
 export const getAllEmpleados = catchAsync(async (req, res, next) => {
   const params = req.query;
 
@@ -50,28 +48,29 @@ export const getAllEmpleados = catchAsync(async (req, res, next) => {
   });
 });
 
-// --- ACTUALIZAR ---
-export const updatePuesto = catchAsync(async (req, res, next) => {
-  const { puestoId } = req.params;
+export const updateEmpleado = catchAsync(async (req, res, next) => {
+  const { empleadoId } = req.params;
 
-  const updatedPuesto = await empleadoService.updatePuesto(puestoId, req.body);
+  const updatedEmpleado = await empleadoService.updateEmpleado(
+    empleadoId,
+    req.body,
+  );
 
   res.status(200).json({
     success: true,
-    data: updatedPuesto,
+    data: updatedEmpleado,
   });
 });
 
-// --- ELIMINAR (Soft Delete) ---
-export const deletePuesto = catchAsync(async (req, res, next) => {
-  const { puestoId } = req.params;
+export const deleteEmpleado = catchAsync(async (req, res, next) => {
+  const { empleadoId } = req.params;
 
   // El servicio se encarga de cambiar el estatus 'activo' a false
-  await empleadoService.deletePuesto(puestoId);
+  await empleadoService.deleteEmpleado(empleadoId);
 
   res.status(200).json({
     success: true,
-    message: "Puesto desactivado correctamente",
+    message: "Empleado desactivado correctamente",
     data: null,
   });
 });
