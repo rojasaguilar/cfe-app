@@ -68,41 +68,90 @@ export const createBateria = async (bateriaData) => {
 //   return depa.rows[0];
 // };
 
-export const getAllPuestos = async (params = {}) => {
+const COLUMN_MAP = {
+  bateriaId: "b.bateriaid",
+  puestoId: "b.puestoid",
+  departamentoId: "b.departamentoid",
+  activo: "b.activo",
+};
+
+export const getAllBaterias = async (params = {}) => {
   const db = Database.getInstance();
 
-  let baseQuery = "SELECT * FROM puesto";
+  let baseQuery = `
+    SELECT
+      b.bateriaid,
+      b.puestoid,
+      p.nombrepuesto,
+      b.departamentoid,
+      d.nombre AS nombredepartamento
+    FROM bateria b
+    INNER JOIN puesto p ON p.puestoid = b.puestoid
+    INNER JOIN departamento d ON d.departamentoid = b.departamentoid
+  `;
+
   const conditions = [];
   const values = [];
   let paramCounter = 1;
 
-  const camposPermitidos = ["nombrePuesto", "puestoId", "activo"];
-
-  // 3. Construcción dinámica de filtros
   for (const [key, value] of Object.entries(params)) {
-    if (camposPermitidos.includes(key)) {
-      // Si el campo es 'nombre', podríamos querer una búsqueda parcial (ILIKE) en vez de coincidencia exacta
-      if (key === "nombre") {
-        conditions.push(`${key} ILIKE $${paramCounter}`);
-        values.push(`%${value}%`); // % permite buscar partes de la palabra
-      } else {
-        conditions.push(`${key} = $${paramCounter}`);
-        values.push(value);
-      }
+    if (value === undefined || value === null || value === "") continue;
+
+    if (Object.prototype.hasOwnProperty.call(COLUMN_MAP, key)) {
+      conditions.push(`${COLUMN_MAP[key]} = $${paramCounter}`);
+      values.push(value);
+      paramCounter++;
+    } else if (key === "nombre") {
+      conditions.push(`d.nombre ILIKE $${paramCounter}`);
+      values.push(`%${value}%`);
       paramCounter++;
     }
   }
 
   if (conditions.length > 0) {
-    baseQuery += " WHERE " + conditions.join(" AND ");
+    baseQuery += ` WHERE ${conditions.join(" AND ")}`;
   }
 
-  baseQuery += " ORDER BY nombrePuesto ASC";
+  const { rows: baterias } = await db.query(baseQuery, values);
 
-  // 5. Ejecutar la consulta pasando el arreglo de valores de forma segura
-  const puestos = await db.query(baseQuery, values);
+  if (baterias.length === 0) {
+    return [];
+  }
 
-  return puestos.rows;
+  const bateriaIds = baterias.map((b) => b.bateriaid);
+
+  const { rows: cursosRows } = await db.query(
+    `
+      SELECT
+        cb.bateriaid,
+        cb.cursoid AS "cursoId",
+        c.codigocurso AS "codigoCurso",
+        c.nombre AS "nombreCurso",
+        c.horaspracticas AS "horasPracticas",
+        c.horasteoria AS "horasTeoria",
+        c.generadc3 AS "generaDC3",
+        c.activo AS "activoCurso"
+      FROM curso_bateria cb
+      INNER JOIN curso c ON cb.cursoid = c.cursoid
+      WHERE cb.bateriaid = ANY($1::uuid[])
+      ORDER BY c.nombre ASC
+    `,
+    [bateriaIds],
+  );
+
+  const cursosPorBateria = new Map();
+  for (const row of cursosRows) {
+    const { bateriaid, ...cursoData } = row;
+    if (!cursosPorBateria.has(bateriaid)) {
+      cursosPorBateria.set(bateriaid, []);
+    }
+    cursosPorBateria.get(bateriaid).push(cursoData);
+  }
+
+  return baterias.map((bateria) => ({
+    ...bateria,
+    cursos: cursosPorBateria.get(bateria.bateriaid) ?? [],
+  }));
 };
 
 // --- ACTUALIZAR (Update) ---

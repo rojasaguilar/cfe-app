@@ -34,12 +34,12 @@ export const getBateria = catchAsync(async (req, res, next) => {
 export const getAllBaterias = catchAsync(async (req, res, next) => {
   const params = req.query;
 
-  const puestos = await bateriaService.getAllPuestos(params);
+  const baterias = await bateriaService.getAllBaterias(params);
 
   res.status(200).json({
     success: true,
-    results: puestos.length,
-    data: puestos,
+    results: baterias.length,
+    data: baterias,
   });
 });
 

@@ -64,7 +64,7 @@ CREATE TABLE bateria (
   puestoId UUID NOT NULL REFERENCES puesto(puestoId),
   departamentoId UUID NOT NULL REFERENCES departamento(departamentoId),
 --  puestoSuperiorId UUID REFERENCES puesto(puestoId) ON DELETE SET NULL, DELETED INCONSISTENCY WITH PLAZA-PUESTO-PUESTOSUPERIOR
-  estado BOOLEAN NOT NULL DEFAULT true,
+  activo BOOLEAN NOT NULL DEFAULT true,
 
   -- Garantiza que no haya dos baterías con el mismo puesto y departamento
   CONSTRAINT uq_bateria_puesto_departamento UNIQUE (puestoId, departamentoId)
@@ -77,17 +77,18 @@ create table curso (
  horasPracticas smallint not null,
  horasTeoria smallint not null,
  generaDC3 boolean not null,	
- estado BOOLEAN not null default true
+ activo BOOLEAN not null default true
 );
 
 CREATE TABLE curso_bateria (
   bateriaId UUID NOT NULL REFERENCES bateria(bateriaId) ON DELETE CASCADE,
-  cursoId UUID NOT NULL REFERENCES curso(cursoId) ON DELETE CASCADE,
-  estado BOOLEAN NOT NULL DEFAULT true,
+  cursoId UUID NOT NULL REFERENCES curso(cursoId) ON DELETE CASCADE
 
   CONSTRAINT pk_curso_bateria PRIMARY KEY (bateriaId, cursoId)
 );
 
+drop table curso
+drop table curso_bateria
 --UTILS
 
 update
@@ -122,31 +123,13 @@ left join empleado e on
 where
 	pl.departamentoId = 'b4f66c6b-8a7b-4014-86e1-6dd9e52fccdf'
 
-alter table plaza 
-add column plazaPadreId UUID references plaza(plazaId) on
-	delete
-	set
-	null;
-
-alter table empleado 
-add unique (curp);
-
-alter table empleado
-add constraint chk_empleado_rtt_rpe
-check(
-(rpe is not null and rtt is null)
-or
-(rpe is null and rtt is not null)
-)
-
-
 INSERT INTO curso (
   codigoCurso,
   nombre,
   horasPracticas,
   horasTeoria,
   generaDC3,
-  estado
+  activo
 )
 VALUES
   (
