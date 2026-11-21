@@ -82,10 +82,12 @@ create table curso (
 
 CREATE TABLE curso_bateria (
   bateriaId UUID NOT NULL REFERENCES bateria(bateriaId) ON DELETE CASCADE,
-  cursoId UUID NOT NULL REFERENCES curso(cursoId) ON DELETE CASCADE
+  cursoId UUID NOT NULL REFERENCES curso(cursoId) ON DELETE cascade,
 
   CONSTRAINT pk_curso_bateria PRIMARY KEY (bateriaId, cursoId)
 );
+
+delete from bateria
 
 drop table curso
 drop table curso_bateria
