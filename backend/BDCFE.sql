@@ -87,10 +87,10 @@ CREATE TABLE curso_bateria (
   CONSTRAINT pk_curso_bateria PRIMARY KEY (bateriaId, cursoId)
 );
 
-delete from bateria
+delete from bateria;
 
-drop table curso
-drop table curso_bateria
+drop table curso;
+drop table curso_bateria;
 --UTILS
 
 update

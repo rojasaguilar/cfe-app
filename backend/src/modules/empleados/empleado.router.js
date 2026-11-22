@@ -27,7 +27,9 @@ router
     validate(updateEmpleadoSchema),
     empleadoController.updateEmpleado,
   )
-.delete(restrictTo("administrador"), empleadoController.deleteEmpleado);
+  .delete(restrictTo("administrador"), empleadoController.deleteEmpleado);
+
+router.get("/:empleadoId/baterias", empleadoController.getBateriasByPlaza);
 
 router.patch(
   "/:empleadoId/assign",

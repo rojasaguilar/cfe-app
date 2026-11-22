@@ -1,6 +1,7 @@
 import catchAsync from "../../utils/catchAsync.js";
 import { AppError } from "../../utils/error.js";
 import * as empleadoService from "./empleado.service.js";
+import * as bateriaService from "./../baterias/bateria.service.js";
 
 // --- CREAR ---
 export const createEmpleado = catchAsync(async (req, res, next) => {
@@ -72,6 +73,19 @@ export const deleteEmpleado = catchAsync(async (req, res, next) => {
     success: true,
     message: "Empleado desactivado correctamente",
     data: null,
+  });
+});
+
+export const getBateriasByPlaza = catchAsync(async (req, res, next) => {
+  const { empleadoId } = req.params;
+
+  // El servicio se encarga de cambiar el estatus 'activo' a false
+  const baterias = await bateriaService.getBateriasByPlaza(empleadoId);
+
+  res.status(200).json({
+    success: true,
+    message: "Empleado desactivado correctamente",
+    data: baterias,
   });
 });
 

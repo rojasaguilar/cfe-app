@@ -154,6 +154,123 @@ export const getAllBaterias = async (params = {}) => {
   }));
 };
 
+export const getBateria = async (bateriaId) => {
+  const db = Database.getInstance();
+
+  let baseQuery = `
+    SELECT
+      b.bateriaid,
+      b.puestoid,
+      p.nombrepuesto,
+      b.departamentoid,
+      d.nombre AS nombredepartamento
+    FROM bateria b
+    INNER JOIN puesto p ON p.puestoid = b.puestoid
+    INNER JOIN departamento d ON d.departamentoid = b.departamentoid
+  `;
+
+  const conditions = [];
+  const values = [];
+  let paramCounter = 1;
+
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === null || value === "") continue;
+
+    if (Object.prototype.hasOwnProperty.call(COLUMN_MAP, key)) {
+      conditions.push(`${COLUMN_MAP[key]} = $${paramCounter}`);
+      values.push(value);
+      paramCounter++;
+    } else if (key === "nombre") {
+      conditions.push(`d.nombre ILIKE $${paramCounter}`);
+      values.push(`%${value}%`);
+      paramCounter++;
+    }
+  }
+
+  if (conditions.length > 0) {
+    baseQuery += ` WHERE ${conditions.join(" AND ")}`;
+  }
+
+  ((baseQuery += ` WHERE bateriaid = $1`), [bateriaId]);
+
+  const { rows: baterias } = await db.query(baseQuery, values);
+
+  if (baterias.length === 0) {
+    return [];
+  }
+
+  const bateriaIds = baterias.map((b) => b.bateriaid);
+
+  const { rows: cursosRows } = await db.query(
+    `
+      SELECT
+        cb.bateriaid,
+        cb.cursoid AS "cursoId",
+        c.codigocurso AS "codigoCurso",
+        c.nombre AS "nombreCurso",
+        c.horaspracticas AS "horasPracticas",
+        c.horasteoria AS "horasTeoria",
+        c.generadc3 AS "generaDC3",
+        c.activo AS "activoCurso"
+      FROM curso_bateria cb
+      INNER JOIN curso c ON cb.cursoid = c.cursoid
+      WHERE cb.bateriaid = ANY($1::uuid[])
+      ORDER BY c.nombre ASC
+    `,
+    [bateriaIds],
+  );
+
+  const cursosPorBateria = new Map();
+  for (const row of cursosRows) {
+    const { bateriaid, ...cursoData } = row;
+    if (!cursosPorBateria.has(bateriaid)) {
+      cursosPorBateria.set(bateriaid, []);
+    }
+    cursosPorBateria.get(bateriaid).push(cursoData);
+  }
+
+  return baterias.map((bateria) => ({
+    ...bateria,
+    cursos: cursosPorBateria.get(bateria.bateriaid) ?? [],
+  }));
+};
+
+export const getBateriasByPlaza = async (empleadoId) => {
+  const db = Database.getInstance();
+
+  const plazaExists = await db.query(
+    `SELECT plazaId FROM empleado WHERE empleadoid = $1`,
+    [empleadoId],
+  );
+
+  const plazaId = plazaExists.rows[0].plazaid;
+
+  console.log(plazaId);
+
+  // if (!plazaId.rows[0])
+  //   throw new AppError(
+  //     `bateria_service`,
+  //     "No se tiene asignada una plaza para este trabajador",
+  //     400,
+  //   );
+
+  let queryToGetPuestoId = `
+    SELECT puestoId, departamentoid FROM plaza WHERE plazaid=$1
+  `;
+
+  const res = await db.query(queryToGetPuestoId, [plazaId]);
+
+  const { puestoid, departamentoid } = res.rows[0];
+
+  let qq = `
+    SELECT * FROM bateria WHERE puestoid=$1 AND departamentoid=$2
+  `;
+
+  const res2 = await db.query(qq, [puestoid, departamentoid]);
+  console.log(res2.rows);
+  // const baterias await
+};
+
 // --- ACTUALIZAR (Update) ---
 export const updatePuesto = async (puestoId, puestoData) => {
   // Extraemos ambos campos. Usamos ?? {} por si puestoData es undefined
