@@ -20,33 +20,37 @@ export const EmpleadoViewPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [baterias, setBaterias] = useState({});
+  const [bateriasError, setBateriasError] = useState(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
 
-  const fetchEmpleado = useCallback(async (showSpinner = true) => {
-    try {
-      if (showSpinner) {
-        setLoading(true);
-      }
-      setError(null);
-      const response = await getEmpleado(empleadoid);
-      const data = response?.data ?? response;
-      setEmpleado(data);
+  const fetchEmpleado = useCallback(
+    async (showSpinner = true) => {
+      try {
+        if (showSpinner) {
+          setLoading(true);
+        }
+        setError(null);
+        const response = await getEmpleado(empleadoid);
+        const data = response?.data ?? response;
+        setEmpleado(data);
 
-      const bateriasResponse = await getBateriaByEmpleado(empleadoid);
-      const bateriasData = bateriasResponse?.data ?? bateriasResponse;
-      setBaterias(bateriasData);
-    } catch (err) {
-      console.error("Error al obtener empleado:", err);
-      setError(
-        err?.message ||
-          "No fue posible cargar la información del empleado.",
-      );
-    } finally {
-      if (showSpinner) {
-        setLoading(false);
+        const bateriasResponse = await getBateriaByEmpleado(empleadoid);
+        const bateriasData = bateriasResponse?.data ?? bateriasResponse;
+        setBaterias(bateriasData);
+      } catch (bateriaErr) {
+        console.warn("Baterías no disponibles para el empleado:", bateriaErr);
+        setBaterias({});
+        setBateriasError(
+          bateriaErr?.message || "Batería no disponible para este empleado.",
+        );
+      } finally {
+        if (showSpinner) {
+          setLoading(false);
+        }
       }
-    }
-  }, [empleadoid]);
+    },
+    [empleadoid],
+  );
 
   useEffect(() => {
     let active = true;
@@ -136,8 +140,9 @@ export const EmpleadoViewPage = () => {
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <DatosGeneralesCard empleado={empleado} />
         <BateriasCard
-          bateriaActual={baterias.bateriaActual}
-          bateriaSuperior={baterias.bateriaSuperior}
+          bateriaActual={baterias?.bateriaActual ?? null}
+          bateriaSuperior={baterias?.bateriaSuperior ?? null}
+          errorMessage={bateriasError}
         />
       </section>
 

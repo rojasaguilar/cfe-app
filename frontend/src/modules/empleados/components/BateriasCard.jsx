@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
-import { Chip, LinearProgress, Paper, Tab, Tabs } from "@mui/material";
-import { BatteryCharging, TrendingUp } from "lucide-react";
+import { useMemo, useState } from "react";
+import { LinearProgress, Paper, Tab, Tabs } from "@mui/material";
+import { AlertCircle, BatteryCharging, TrendingUp } from "lucide-react";
 
 const parsePercentage = (rawPercentage) => {
   if (
@@ -15,39 +15,37 @@ const parsePercentage = (rawPercentage) => {
   return Math.max(0, Math.min(100, numeric));
 };
 
-const BatteryPanel = ({ bateria, title, icon }) => {
-  const [horasTotales, setHorasTotales] = useState(0);
+const BatteryPanel = ({ bateria, title, icon, errorMessage }) => {
+  const cursos = Array.isArray(bateria?.cursos) ? bateria.cursos : [];
+
+  const horasTotales = useMemo(() => {
+    return cursos.reduce((acc, curso) => {
+      const practicas = Number(curso?.horasPracticas) || 0;
+      const teoria = Number(curso?.horasTeoria) || 0;
+      return acc + practicas + teoria;
+    }, 0);
+  }, [cursos]);
 
   if (!bateria) {
     return (
-      <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/70 p-5 text-center space-y-1">
+      <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/70 p-5 text-center space-y-2">
         <div className="flex items-center justify-center gap-2 text-slate-700 font-semibold">
           {icon}
           <span>{title}</span>
         </div>
-        <p className="text-sm text-slate-500">
-          No hay información disponible para este rubro.
+        <p className="inline-flex items-center justify-center gap-1.5 text-sm font-medium text-amber-700">
+          <AlertCircle size={15} />
+          <span>Batería no disponible</span>
+        </p>
+        <p className="text-xs text-slate-500">
+          {errorMessage || "No hay batería asignada para este rubro."}
         </p>
       </div>
     );
   }
 
   const percentage = parsePercentage(bateria?.porcentaje);
-  const cursos = Array.isArray(bateria?.cursos) ? bateria.cursos : [];
 
-  const calculateHoras = () => {
-    const horasTotalesCalculadas = cursos.reduce((acc, curso) => {
-      const practicas = Number(curso?.horasPracticas) || 0;
-      const teoria = Number(curso?.horasTeoria) || 0;
-      return acc + practicas + teoria;
-    }, 0);
-
-    setHorasTotales(horasTotalesCalculadas);
-  };
-
-  useEffect(() => {
-    calculateHoras();
-  }, [cursos]);
   return (
     <div className="rounded-xl border border-slate-200 bg-linear-to-br from-slate-50 to-blue-50/50 p-5 space-y-4">
       <div className="flex items-center justify-between gap-2">
@@ -56,17 +54,11 @@ const BatteryPanel = ({ bateria, title, icon }) => {
             {icon}
             <h3>{title}</h3>
           </div>
-          <div className="flex gap-1.5">
-            <h3>Horas totales:</h3>
-            <h4>{horasTotales}</h4>
+          <div className="flex gap-1.5 text-sm">
+            <span>Horas totales:</span>
+            <span>{horasTotales}h</span>
           </div>
         </div>
-      </div>
-
-      <div className="flex items-baseline justify-between gap-2">
-        {/* <span className="text-3xl font-bold tracking-tight text-blue-700">
-          {percentage != null ? `${percentage}%` : "—"}
-        </span> */}
       </div>
 
       <LinearProgress
@@ -85,26 +77,28 @@ const BatteryPanel = ({ bateria, title, icon }) => {
 
       {cursos.length > 0 ? (
         <div className="space-y-2 pt-1">
-          <div className="grid grid-cols-4">
+          <div className="grid grid-cols-4 text-xs font-semibold text-slate-500">
             <p className="col-span-2">Nombre del curso</p>
-            <p>Horas de practica</p>
+            <p>Horas práctica</p>
             <p>Horas teoría</p>
           </div>
           {cursos.map((curso, index) => (
             <div
-              key={curso?.cursoId}
+              key={curso?.cursoId ?? `${curso?.nombreCurso}-${index}`}
               className="grid grid-cols-4 text-sm text-slate-700"
             >
               <p className="col-span-2">
                 {curso?.nombreCurso ?? "Curso sin nombre"}
               </p>
-              <p>{curso.horasPracticas}</p>
-              <p>{curso.horasTeoria}</p>
+              <p>{curso?.horasPracticas ?? 0}</p>
+              <p>{curso?.horasTeoria ?? 0}</p>
             </div>
           ))}
         </div>
       ) : (
-        <p className="text-xs text-slate-500">Sin cursos registrados.</p>
+        <p className="text-xs text-slate-500">
+          Batería no disponible — sin cursos registrados.
+        </p>
       )}
     </div>
   );
@@ -113,6 +107,7 @@ const BatteryPanel = ({ bateria, title, icon }) => {
 export const BateriasCard = ({
   bateriaActual = null,
   bateriaSuperior = null,
+  errorMessage = null,
 }) => {
   const [batteryTab, setBatteryTab] = useState(0);
 
@@ -158,12 +153,14 @@ export const BateriasCard = ({
             bateria={bateriaActual}
             title="Batería actual"
             icon={<BatteryCharging size={18} className="text-blue-600" />}
+            errorMessage={errorMessage}
           />
         ) : (
           <BatteryPanel
             bateria={bateriaSuperior}
             title="Batería superior"
             icon={<TrendingUp size={18} className="text-blue-600" />}
+            errorMessage={errorMessage}
           />
         )}
       </div>

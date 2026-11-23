@@ -218,7 +218,9 @@ export const getBateriasByEmpleado = async (empleadoId) => {
     [empleadoId],
   );
 
-  if (!plazaExists.rowCount === 0)
+  console.log("la plaza", plazaExists.rows);
+
+  if (!plazaExists.rows[0].plazaid)
     throw new AppError(
       "bateria_service",
       "Este empleado no tiene una plaza adjunta, por lo que no es posible obtener sus baterias",
@@ -226,13 +228,6 @@ export const getBateriasByEmpleado = async (empleadoId) => {
     );
 
   const plazaId = plazaExists.rows[0].plazaid;
-
-  if (plazaId.rowCount === 0)
-    throw new AppError(
-      `bateria_service`,
-      "No se tiene asignada una plaza para este trabajador",
-      400,
-    );
 
   let queryToGetPuestoId = `
     SELECT puestoId, departamentoid FROM plaza WHERE plazaid=$1
@@ -248,7 +243,7 @@ export const getBateriasByEmpleado = async (empleadoId) => {
 
   const bateriaId = await db.query(queryBateriaId, [puestoid, departamentoid]);
 
-  if (bateriaId.rowCount === 0)
+  if (!bateriaId.rows[0].bateriaid)
     throw new AppError(
       "bateria_service",
       "No existe una bateria asociada al puesto y departamento de este empleado",
