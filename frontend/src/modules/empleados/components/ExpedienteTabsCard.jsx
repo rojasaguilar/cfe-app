@@ -28,7 +28,7 @@ const InfoItem = ({ label, value }) => (
     <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 sm:w-40 shrink-0">
       {label}
     </span>
-    <span className="text-sm font-medium text-slate-800 break-words">
+    <span className="text-sm font-medium text-slate-800 wrap-break-word">
       {value || "No disponible"}
     </span>
   </div>
@@ -45,10 +45,10 @@ const DatosPersonales = ({ empleado }) => {
         </h3>
         <InfoItem
           label="Fecha de nacimiento"
-          value={formatDate(datos.fechaNacimiento)}
+          value={formatDate(datos.fechanacimiento)}
         />
         {/* <InfoItem label="Género" value={datos.genero} /> */}
-        <InfoItem label="Estado civil" value={datos.estadoCivil} />
+        <InfoItem label="Estado civil" value={datos.estadocivil} />
       </div>
 
       <div className="space-y-1">
@@ -138,7 +138,7 @@ export const ExpedienteTabsCard = ({ empleado }) => {
         }}
       >
         <Tab label="Datos personales" />
-        <Tab label="Kardex" />
+        {/* <Tab label="Kardex" /> */}
       </Tabs>
 
       <Divider />

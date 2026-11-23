@@ -1,14 +1,16 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   getBateriaByEmpleado,
   getEmpleado,
+  updateEmpleado,
 } from "../services/empleado.service";
 import { DatosGeneralesCard } from "../components/DatosGeneralesCard";
 import { BateriasCard } from "../components/BateriasCard";
 import { ExpedienteTabsCard } from "../components/ExpedienteTabsCard";
+import { EditEmpleadoModal } from "../components/EditEmpleadoModal";
 import { Alert, Box, Button, CircularProgress } from "@mui/material";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Pencil } from "lucide-react";
 
 export const EmpleadoViewPage = () => {
   const { empleadoid } = useParams();
@@ -18,54 +20,60 @@ export const EmpleadoViewPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [baterias, setBaterias] = useState({});
+  const [isEditOpen, setIsEditOpen] = useState(false);
+
+  const fetchEmpleado = useCallback(async (showSpinner = true) => {
+    try {
+      if (showSpinner) {
+        setLoading(true);
+      }
+      setError(null);
+      const response = await getEmpleado(empleadoid);
+      const data = response?.data ?? response;
+      setEmpleado(data);
+
+      const bateriasResponse = await getBateriaByEmpleado(empleadoid);
+      const bateriasData = bateriasResponse?.data ?? bateriasResponse;
+      setBaterias(bateriasData);
+    } catch (err) {
+      console.error("Error al obtener empleado:", err);
+      setError(
+        err?.message ||
+          "No fue posible cargar la información del empleado.",
+      );
+    } finally {
+      if (showSpinner) {
+        setLoading(false);
+      }
+    }
+  }, [empleadoid]);
 
   useEffect(() => {
     let active = true;
 
-    const fetchEmpleado = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const response = await getEmpleado(empleadoid);
-        const data = response?.data ?? response;
-        if (active) {
-          setEmpleado(data);
-        }
-        const bateriasResponse = await getBateriaByEmpleado(empleadoid);
-        const bateriasData = bateriasResponse?.data ?? bateriasResponse;
-        setBaterias(bateriasData);
-      } catch (err) {
-        console.error("Error al obtener empleado:", err);
-        if (active) {
-          setError(
-            err?.message ||
-              "No fue posible cargar la información del empleado.",
-          );
-        }
-      } finally {
-        if (active) {
-          setLoading(false);
-        }
+    const load = async () => {
+      if (!empleadoid) {
+        setLoading(false);
+        setError("No se especificó el identificador del empleado.");
+        return;
+      }
+      if (active) {
+        await fetchEmpleado(true);
       }
     };
 
-    if (empleadoid) {
-      fetchEmpleado();
-    } else {
-      setLoading(false);
-      setError("No se especificó el identificador del empleado.");
-    }
+    load();
 
     return () => {
       active = false;
     };
-  }, [empleadoid]);
+  }, [empleadoid, fetchEmpleado]);
 
-  console.log(baterias);
-
-  const fullName =
-    [empleado?.nombres, empleado?.apellidos].filter(Boolean).join(" ") ||
-    "Empleado";
+  const handleUpdateEmpleado = async (id, payload) => {
+    await updateEmpleado(id, payload);
+    setIsEditOpen(false);
+    await fetchEmpleado(false);
+  };
 
   if (loading) {
     return (
@@ -109,6 +117,20 @@ export const EmpleadoViewPage = () => {
         >
           Volver al listado
         </Button>
+
+        <Button
+          startIcon={<Pencil size={16} />}
+          variant="contained"
+          onClick={() => setIsEditOpen(true)}
+          sx={{
+            textTransform: "none",
+            fontWeight: 600,
+            borderRadius: "10px",
+            alignSelf: { xs: "flex-start", sm: "auto" },
+          }}
+        >
+          Editar
+        </Button>
       </header>
 
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -120,6 +142,13 @@ export const EmpleadoViewPage = () => {
       </section>
 
       <ExpedienteTabsCard empleado={empleado} />
+
+      <EditEmpleadoModal
+        open={isEditOpen}
+        empleado={empleado}
+        onClose={() => setIsEditOpen(false)}
+        onSubmit={handleUpdateEmpleado}
+      />
     </main>
   );
 };

@@ -1,5 +1,6 @@
 // src/services/auth.service.js
 import { api } from "../../../services/api.js";
+import { updateEmpleadoSchema } from "../dtos/update.empleado.dto.js";
 import { createEmpleadoSchema } from "./../dtos/create.empleado.dto.js";
 
 export const getEmpleados = async () => {
@@ -112,14 +113,19 @@ export const activateDepartamento = async (departamentoId) => {
   }
 };
 
-export const updateDepartamento = async (id, nombre) => {
+export const updateEmpleado = async (empeladoId,data) => {
   try {
-    const response = await api.patch(`/departamentos/${id}`, nombre);
-    return response.data;
+    const resultData = updateEmpleadoSchema.safeParse(data);
+
+    if (!resultData.success) throw new Error(resultData.error);
+
+    const response = await api.patch(`/empleados/${empeladoId}`, resultData.data);
+    return response.data; // Devuelve el JSON de tu backend
   } catch (error) {
     if (error.response) {
       throw new Error(
-        error.response.data.message || "Error al actualizar el departamento",
+        error.response.data.message ||
+          "Error de servidor, intenta de nuevo mas tarde",
       );
     }
     throw new Error("Error de conexión al servidor");

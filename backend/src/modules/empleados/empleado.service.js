@@ -80,57 +80,106 @@ export const getAllEmpleados = async (params = {}) => {
   return empleados.rows;
 };
 
+const validarMinimo18Anios = (fechaStr) => {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(fechaStr).trim());
+  if (!match) {
+    throw new AppError(
+      "empleado_service",
+      "Formato de fecha de nacimiento inválido (se espera YYYY-MM-DD).",
+      400,
+    );
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+
+  // Verifica que la fecha calendarizada exista (ej. evita 2000-02-30)
+  const fechaNac = new Date(Date.UTC(year, month - 1, day));
+  if (
+    fechaNac.getUTCFullYear() !== year ||
+    fechaNac.getUTCMonth() !== month - 1 ||
+    fechaNac.getUTCDate() !== day
+  ) {
+    throw new AppError(
+      "empleado_service",
+      "La fecha de nacimiento proporcionada no es válida.",
+      400,
+    );
+  }
+
+  const hoy = new Date();
+  const limite18Anios = new Date(
+    Date.UTC(hoy.getUTCFullYear() - 18, hoy.getUTCMonth(), hoy.getUTCDate()),
+  );
+
+  if (fechaNac > limite18Anios) {
+    throw new AppError(
+      "empleado_service",
+      "El empleado debe tener al menos 18 años cumplidos.",
+      400,
+    );
+  }
+};
+
 export const updateEmpleado = async (empleadoId, empleadoData) => {
   if (!empleadoId) {
     throw new AppError(
       "empleado_service",
-      "Por favor, proporciona el ID del puesto a actualizar.",
+      "Por favor, proporciona el ID del empleado a actualizar.",
       400,
     );
   }
-  // console.log(empleadoData);
-  if (empleadoData == {})
+
+  if (!empleadoData || Object.keys(empleadoData).length === 0) {
     throw new AppError(
       "empleado_service",
       "Por favor, proporciona un dato para actualizar.",
       400,
     );
+  }
+
+  const fechaNacimientoRaw =
+    empleadoData.fechaNacimiento ?? empleadoData.fechanacimiento;
+
+  if (fechaNacimientoRaw !== undefined && fechaNacimientoRaw !== null) {
+    validarMinimo18Anios(fechaNacimientoRaw);
+  }
 
   const db = Database.getInstance();
-  // const fieldsToUpdate = {};
 
-  // 3. Construir dinámicamente el SET y los Values
   const keys = Object.keys(empleadoData);
   const setClauses = [];
   const values = [];
   let index = 1;
 
   for (const key of keys) {
-    // Si tus tablas usan camelCase en Postgres, asegúralo con comillas: "${key}"
-    // Si usas todo en minúsculas en tu BD, puedes quitarle las comillas
-    setClauses.push(`"${key}" = $${index}`);
+    const columnName = key.toLowerCase();
+    setClauses.push(`${columnName} = $${index}`);
     values.push(empleadoData[key]);
     index++;
   }
 
-  // Agregamos el empleadoId al final de los values para el WHERE
   values.push(empleadoId);
 
   const queryString = `
-    UPDATE empleado 
+    UPDATE empleado
     SET ${setClauses.join(", ")}
-    WHERE "empleadoid" = $${index} 
+    WHERE empleadoid = $${index}
     RETURNING *
   `;
 
-  // 4. Ejecutar actualización
-  const updatedPuesto = await db.query(queryString, values);
+  const updatedEmpleado = await db.query(queryString, values);
 
-  if (updatedPuesto.rowCount === 0) {
-    throw new AppError("El empleado que intentas actualizar no existe.", 404);
+  if (updatedEmpleado.rowCount === 0) {
+    throw new AppError(
+      "empleado_service",
+      "El empleado que intentas actualizar no existe.",
+      404,
+    );
   }
 
-  return updatedPuesto.rows[0];
+  return updatedEmpleado.rows[0];
 };
 
 export const deleteEmpleado = async (empleadoId) => {

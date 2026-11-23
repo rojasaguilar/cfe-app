@@ -46,7 +46,7 @@ export const createEmpleadoSchema = z
       .toUpperCase(),
 
     fechaNacimiento: z
-      .string()
+      // .string()
       .date({ error: "Formato de fecha de nacimiento inválido (YYYY-MM-DD)" })
       .nullable()
       .optional(),
@@ -82,7 +82,7 @@ export const createEmpleadoSchema = z
       .optional(),
 
     correo: z
-      .string()
+      // .string()
       .email({ error: "Formato de correo electrónico inválido" })
       .max(120, {
         error: "El correo puede tener un máximo de 120 caracteres",

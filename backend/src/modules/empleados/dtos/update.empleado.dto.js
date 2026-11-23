@@ -30,6 +30,52 @@ export const baseEmpleado = z.object({
     .length(18, { error: "Formato de CURP incorrecto" })
     .toUpperCase(),
   // activo: z.boolean(),
+  fechaNacimiento: z
+    .string()
+    .date({ error: "Formato de fecha de nacimiento inválido (YYYY-MM-DD)" })
+    .nullable()
+    .optional(),
+
+  estadoCivil: z
+    .string()
+    .max(10, {
+      error: "El estado civil puede tener un máximo de 10 caracteres",
+    })
+    .trim()
+    .toUpperCase()
+    .nullable()
+    .optional(),
+
+  domicilio: z
+    .string()
+    .min(5, { error: "El domicilio debe tener al menos 5 caracteres" })
+    .max(255, {
+      error: "El domicilio puede tener un máximo de 255 caracteres",
+    })
+    .trim()
+    .nullable()
+    .optional(),
+
+  telefono: z
+    .string()
+    .min(7, { error: "El teléfono debe tener al menos 7 caracteres" })
+    .max(20, {
+      error: "El teléfono puede tener un máximo de 20 caracteres",
+    })
+    .trim()
+    .nullable()
+    .optional(),
+
+  correo: z
+    // .string()
+    .email({ error: "Formato de correo electrónico inválido" })
+    .max(120, {
+      error: "El correo puede tener un máximo de 120 caracteres",
+    })
+    .trim()
+    .toLowerCase()
+    .nullable()
+    .optional(),
 });
 
 export const updateEmpleadoSchema = baseEmpleado
