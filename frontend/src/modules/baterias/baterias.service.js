@@ -1,6 +1,7 @@
 // src/services/auth.service.js
 import { api } from "./../../services/api.js";
-import { createBateriaSchema } from "./createBateria.dto.js";
+import { createBateriaSchema } from "./dtos/createBateria.dto.js";
+import { updateBateriaSchema } from "./dtos/updateBateria.dto.js";
 
 export const getBaterias = async () => {
   try {
@@ -39,6 +40,25 @@ export const createBateria = async (data) => {
     if (!resultData.success) throw new Error(resultData.error);
 
     const response = await api.post("/baterias", resultData.data);
+    return response.data; // Devuelve el JSON de tu backend
+  } catch (error) {
+    if (error.response) {
+      throw new Error(
+        error.response.data.message ||
+          "Error de servidor, intenta de nuevo mas tarde",
+      );
+    }
+    throw new Error("Error de conexión al servidor");
+  }
+};
+
+export const updateBateria = async (bateriaId, data) => {
+  try {
+    const resultData = updateBateriaSchema.safeParse(data);
+
+    if (!resultData.success) throw new Error(resultData.error);
+
+    const response = await api.patch(`/baterias/${bateriaId}`, resultData.data);
     return response.data; // Devuelve el JSON de tu backend
   } catch (error) {
     if (error.response) {

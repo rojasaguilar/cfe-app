@@ -294,128 +294,104 @@ export const getBateriasByEmpleado = async (empleadoId) => {
 };
 
 // --- ACTUALIZAR (Update) ---
-export const updateBateria = async (puestoId, puestoData) => {
-  // Extraemos ambos campos. Usamos ?? {} por si puestoData es undefined
-  const { nombrePuesto, activo } = puestoData ?? {};
-
-  if (!puestoId) {
-    throw new AppError(
-      "Por favor, proporciona el ID del puesto a actualizar.",
-      400,
-    );
-  }
-
-  // Verificamos si ambos son nulos o undefined
-  if (nombrePuesto == null && activo == null) {
-    throw new AppError(
-      "puesto_service",
-      "Proporciona al menos un dato para actualizar.",
-      400,
-    );
-  }
-
+export const updateBateriaCursos = async (bateriaId, payload) => {
   const db = Database.getInstance();
-  const fieldsToUpdate = {};
+  const cursosSolicitados = payload?.cursos ?? [];
 
-  // 1. Procesar y validar nombrePuesto (solo si se envió)
-  if (nombrePuesto != null) {
-    const nuevoNombre = nombrePuesto.toLowerCase().trim();
+  if (!Array.isArray(cursosSolicitados) || cursosSolicitados.length === 0) {
+    throw new AppError(
+      "bateria_service",
+      "La batería debe tener al menos un curso asignado",
+      400,
+    );
+  }
 
-    // Verificar que el nuevo nombre no colisione con OTRO puesto
-    const nameExists = await db.query(
-      `SELECT "puestoId" FROM puesto WHERE "nombrePuesto" = $1 AND "puestoId" != $2`,
-      [nuevoNombre, puestoId],
+  const uniqueCursoIds = Array.from(
+    new Set(cursosSolicitados.map((item) => item.cursoId)),
+  );
+
+  return db.transaction(async (client) => {
+    const bateriaResult = await db.query(
+      `SELECT bateriaid, activo FROM bateria WHERE bateriaid = $1`,
+      [bateriaId],
+      client,
     );
 
-    if (nameExists.rowCount > 0) {
+    if (bateriaResult.rowCount === 0) {
       throw new AppError(
-        "puesto_service",
-        "Ya existe otro puesto con ese nombre.",
-        409,
-      ); // 409 Conflict
+        "bateria_service",
+        "La batería especificada no existe",
+        404,
+      );
     }
 
-    fieldsToUpdate.nombrePuesto = nuevoNombre;
-  }
+    if (!bateriaResult.rows[0].activo) {
+      throw new AppError(
+        "bateria_service",
+        "No se pueden modificar los cursos de una batería inactiva",
+        409,
+      );
+    }
 
-  // 2. Procesar activo (solo si se envió)
-  if (activo != null) {
-    fieldsToUpdate.activo = activo;
-  }
+    const cursosExistentes = await db.query(
+      `SELECT cursoid FROM curso WHERE cursoid = ANY($1::uuid[])`,
+      [uniqueCursoIds],
+      client,
+    );
 
-  // 3. Construir dinámicamente el SET y los Values
-  const keys = Object.keys(fieldsToUpdate);
-  const setClauses = [];
-  const values = [];
-  let index = 1;
+    if (cursosExistentes.rowCount !== uniqueCursoIds.length) {
+      const encontrados = new Set(
+        cursosExistentes.rows.map((row) => row.cursoid),
+      );
+      const faltantes = uniqueCursoIds.filter((id) => !encontrados.has(id));
 
-  for (const key of keys) {
-    // Si tus tablas usan camelCase en Postgres, asegúralo con comillas: "${key}"
-    // Si usas todo en minúsculas en tu BD, puedes quitarle las comillas
-    setClauses.push(`"${key}" = $${index}`);
-    values.push(fieldsToUpdate[key]);
-    index++;
-  }
+      throw new AppError(
+        "bateria_service",
+        `Uno o más cursos no existen: ${faltantes.join(", ")}`,
+        400,
+      );
+    }
 
-  // Agregamos el puestoId al final de los values para el WHERE
-  values.push(puestoId);
+    await db.query(
+      `DELETE FROM curso_bateria WHERE bateriaid = $1`,
+      [bateriaId],
+      client,
+    );
 
-  const queryString = `
-    UPDATE puesto 
-    SET ${setClauses.join(", ")}
-    WHERE "puestoid" = $${index} 
-    RETURNING *
-  `;
+    const bateriaIds = new Array(uniqueCursoIds.length).fill(bateriaId);
 
-  // 4. Ejecutar actualización
-  const updatedPuesto = await db.query(queryString, values);
+    await db.query(
+      `INSERT INTO curso_bateria (bateriaid, cursoid)
+       SELECT * FROM UNNEST($1::uuid[], $2::uuid[])`,
+      [bateriaIds, uniqueCursoIds],
+      client,
+    );
 
-  if (updatedPuesto.rowCount === 0) {
-    throw new AppError("El puesto que intentas actualizar no existe.", 404);
-  }
-
-  return updatedPuesto.rows[0];
+    return {
+      bateriaid: bateriaId,
+      cursos: uniqueCursoIds.map((cursoId) => ({ cursoId })),
+    };
+  });
 };
 
-// --- ELIMINAR LÓGICAMENTE (Soft Delete) ---
-export const deletePuesto = async (puestoId) => {
-  if (!puestoId) {
-    throw new AppError(
-      "Por favor, proporciona el ID del puesto a eliminar.",
-      400,
-    );
-  }
-
+export const deactivateBateria = async (bateriaId) => {
   const db = Database.getInstance();
 
-  const plazasActivasCheck = await db.query(
-    `SELECT plazaId 
-     FROM plaza 
-     WHERE puestoId = $1 AND activo = true 
-     LIMIT 1`,
-    [puestoId],
+  const result = await db.query(
+    `UPDATE bateria
+     SET activo = false
+     WHERE bateriaid = $1
+     RETURNING bateriaid, puestoid, departamentoid, activo`,
+    [bateriaId],
   );
 
-  if (plazasActivasCheck.rowCount > 0) {
+  if (result.rowCount === 0) {
     throw new AppError(
-      "puesto_service",
-      "No se puede desactivar este puesto porque actualmente hay plazas activas que lo están utilizando. Haz los cambios pertientes para poder desactivar",
-      409,
+      "bateria_service",
+      "La batería especificada no existe",
+      404,
     );
   }
 
-  // Actualizamos el campo 'activo' a false en lugar de hacer un DELETE FROM
-  const deletedPuesto = await db.query(
-    `UPDATE puesto 
-     SET activo = false 
-     WHERE puestoId = $1 
-     RETURNING *`,
-    [puestoId],
-  );
-
-  if (deletedPuesto.rowCount === 0) {
-    throw new AppError("El puesto no existe o ya fue eliminado.", 404);
-  }
-
-  return deletedPuesto.rows[0];
+  return result.rows[0];
 };

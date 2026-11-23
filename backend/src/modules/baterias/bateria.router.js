@@ -3,6 +3,7 @@ import * as bateriaController from "./bateria.controller.js";
 import { protect, restrictTo } from "../auth/auth.controller.js";
 import { validate } from "../../middlewares/validate.data.js";
 import { createBateriaSchema } from "./dtos/createBateria.dto.js";
+import { updateBateriaSchema } from "./dtos/updateBateria.dto.js";
 
 const router = express.Router();
 
@@ -17,10 +18,14 @@ router
     bateriaController.createBateria,
   );
 
-// router
-//   .route("/:bateriaId")
-//   .get(bateriaController.getBateria)
-//   .patch(restrictTo("administrador"), bateriaController.updateBateria)
+router
+  .route("/:bateriaId")
+  //   .get(bateriaController.getBateria)
+  .patch(
+    restrictTo("administrador"),
+    validate(updateBateriaSchema),
+    bateriaController.updateBateria,
+  );
 //   .delete(restrictTo("administrador"), bateriaController.deleteBateria);
 
 export default router;

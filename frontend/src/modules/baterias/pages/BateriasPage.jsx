@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import { Button } from "@mui/material";
-import { getBaterias, createBateria } from "./../baterias.service.js";
+import {
+  getBaterias,
+  createBateria,
+  updateBateria,
+} from "./../baterias.service.js";
 import { BateriasCapacitacionView } from "../components/BateriasCapacitacionView";
 import { CreateBateriaModal } from "../components/CreateBateriaModal";
 
@@ -41,6 +45,11 @@ export const BateriasPage = () => {
     await fetchBaterias();
   };
 
+  const handleUpdateBateria = async (bateriaId, data) => {
+    await updateBateria(bateriaId, data);
+    await fetchBaterias();
+  };
+
   if (loading) {
     return (
       <div className="p-6 text-gray-500">
@@ -70,7 +79,10 @@ export const BateriasPage = () => {
         </Button>
       </header>
 
-      <BateriasCapacitacionView payload={{ data: baterias }} />
+      <BateriasCapacitacionView
+        payload={{ data: baterias }}
+        onUpdateBateria={handleUpdateBateria}
+      />
 
       <CreateBateriaModal
         isOpen={isModalOpen}

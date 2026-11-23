@@ -47,7 +47,7 @@ export const getAllBaterias = catchAsync(async (req, res, next) => {
 export const updateBateria = catchAsync(async (req, res, next) => {
   const { bateriaId } = req.params;
 
-  const updatedBateria = await bateriaService.updateBateria(
+  const updatedBateria = await bateriaService.updateBateriaCursos(
     bateriaId,
     req.body,
   );

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Layers,
   Building2,
@@ -6,8 +6,10 @@ import {
   Clock,
   Award,
   ChevronRight,
+  Pencil,
   X,
 } from "lucide-react";
+import { EditBateriaModal } from "./../components/EditarBateriaModal";
 
 function calcularMetricasBateria(cursos = []) {
   return cursos.reduce(
@@ -27,13 +29,14 @@ function calcularMetricasBateria(cursos = []) {
       horasPracticas: 0,
       horasTotales: 0,
       cursosDc3: 0,
-    }
+    },
   );
 }
 
-export function BateriasCapacitacionView({ payload }) {
+export function BateriasCapacitacionView({ payload, onUpdateBateria }) {
   const baterias = payload?.data ?? [];
-  const [bateriaSeleccionada, setBateriaSeleccionada] = useState(null);
+  const [bateriaSeleccionadaId, setBateriaSeleccionadaId] = useState(null);
+  const [bateriaEnEdicion, setBateriaEnEdicion] = useState(null);
 
   const bateriasConMetricas = useMemo(
     () =>
@@ -41,8 +44,35 @@ export function BateriasCapacitacionView({ payload }) {
         ...bateria,
         metricas: calcularMetricasBateria(bateria.cursos),
       })),
-    [baterias]
+    [baterias],
   );
+
+  const bateriaSeleccionada = useMemo(
+    () =>
+      bateriasConMetricas.find((b) => b.bateriaid === bateriaSeleccionadaId) ??
+      null,
+    [bateriasConMetricas, bateriaSeleccionadaId],
+  );
+
+  useEffect(() => {
+    if (!bateriaSeleccionadaId || bateriaEnEdicion) return;
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        setBateriaSeleccionadaId(null);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [bateriaSeleccionadaId, bateriaEnEdicion]);
+
+  const handleConfirmEdit = async (bateriaId, data) => {
+    if (onUpdateBateria) {
+      await onUpdateBateria(bateriaId, data);
+    }
+    setBateriaEnEdicion(null);
+  };
 
   if (bateriasConMetricas.length === 0) {
     return (
@@ -57,14 +87,13 @@ export function BateriasCapacitacionView({ payload }) {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {bateriasConMetricas.map((bateria) => {
           const { metricas } = bateria;
-          const estaActiva =
-            bateriaSeleccionada?.bateriaid === bateria.bateriaid;
+          const estaActiva = bateriaSeleccionadaId === bateria.bateriaid;
 
           return (
             <button
               key={bateria.bateriaid}
               type="button"
-              onClick={() => setBateriaSeleccionada(bateria)}
+              onClick={() => setBateriaSeleccionadaId(bateria.bateriaid)}
               className={`group w-full rounded-xl border p-5 text-left transition ${
                 estaActiva
                   ? "border-emerald-600 bg-emerald-50/40 ring-2 ring-emerald-500/20"
@@ -111,7 +140,7 @@ export function BateriasCapacitacionView({ payload }) {
 
       {bateriaSeleccionada && (
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2">
               <Layers className="h-5 w-5 text-emerald-600" />
               <div>
@@ -121,14 +150,26 @@ export function BateriasCapacitacionView({ payload }) {
                 </h4>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => setBateriaSeleccionada(null)}
-              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-              aria-label="Cerrar detalle"
-            >
-              <X className="h-4 w-4" />
-            </button>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setBateriaEnEdicion(bateriaSeleccionada)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+              >
+                <Pencil className="h-3.5 w-3.5 text-emerald-600" />
+                Editar cursos
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setBateriaSeleccionadaId(null)}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                aria-label="Cerrar detalle"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
           </div>
 
           <ul className="mt-4 divide-y divide-slate-100">
@@ -177,6 +218,12 @@ export function BateriasCapacitacionView({ payload }) {
           </ul>
         </div>
       )}
+
+      <EditBateriaModal
+        bateria={bateriaEnEdicion}
+        onClose={() => setBateriaEnEdicion(null)}
+        onSubmit={handleConfirmEdit}
+      />
     </div>
   );
 }
