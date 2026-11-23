@@ -11,6 +11,8 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { Outlet, Link } from "react-router-dom";
+import { Book } from "lucide-react";
+import { ListCheck } from "lucide-react";
 
 export const Layout = () => {
   const [openMenus, setOpenMenus] = useState({});
@@ -51,6 +53,18 @@ export const Layout = () => {
       icon: Users,
       label: "Empleados",
       href: "/empleados",
+    },
+    {
+      id: "curso",
+      icon: Book,
+      label: "Cursos",
+      href: "/cursos",
+    },
+    {
+      id: "bateria",
+      icon: ListCheck,
+      label: "Baterias capacitacion",
+      href: "/baterias",
     },
   ];
 

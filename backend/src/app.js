@@ -10,6 +10,7 @@ import puestoRouter from "./modules/puestos/puesto.router.js";
 import plazaRouter from "./modules/plazas/plaza.router.js";
 import empleadoRouter from "./modules/empleados/empleado.router.js";
 import bateriaRouter from "./modules/baterias/bateria.router.js";
+import cursosRouter from "./modules/cursos/curso.router.js";
 
 import envVars from "./config/config.dotenv.js";
 
@@ -33,6 +34,7 @@ app.use("/api/v1/puestos", puestoRouter);
 app.use("/api/v1/plazas", plazaRouter);
 app.use("/api/v1/empleados", empleadoRouter);
 app.use("/api/v1/baterias", bateriaRouter);
+app.use("/api/v1/cursos", cursosRouter);
 
 app.use(globalErrorHandler);
 

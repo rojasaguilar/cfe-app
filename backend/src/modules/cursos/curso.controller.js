@@ -1,73 +1,73 @@
 import catchAsync from "../../utils/catchAsync.js";
 import { AppError } from "../../utils/error.js";
-import * as puestoService from "./puesto.service.js";
+import * as cursoService from "./curso.service.js";
 
 // --- CREAR ---
-export const createPuesto = catchAsync(async (req, res, next) => {
+export const createCurso = catchAsync(async (req, res, next) => {
   const data = req.body;
 
   // Solo enviamos el nombre, el ID lo genera PostgreSQL automáticamente
-  const newPuesto = await puestoService.createPuesto({
-    nombrePuesto: data.nombrePuesto,
+  const newCurso = await cursoService.createCurso({
+    nombreCurso: data.nombreCurso,
   });
 
-  if (!newPuesto) {
-    throw new AppError("Error al crear puesto. Intenta más tarde", 500);
+  if (!newCurso) {
+    throw new AppError("Error al crear Curso. Intenta más tarde", 500);
   }
 
   res.status(201).json({
     success: true,
-    data: newPuesto,
+    data: newCurso,
   });
 });
 
 // --- OBTENER UNO ---
-export const getPuesto = catchAsync(async (req, res, next) => {
-  const { puestoId } = req.params;
+export const getCurso = catchAsync(async (req, res, next) => {
+  const { CursoId } = req.params;
 
-  const puesto = await puestoService.getPuesto(puestoId);
+  const Curso = await cursoService.getCurso(CursoId);
 
   res.status(200).json({
     success: true,
-    data: puesto,
+    data: Curso,
   });
 });
 
 // --- OBTENER TODOS ---
-export const getAllPuestos = catchAsync(async (req, res, next) => {
+export const getAllCursos = catchAsync(async (req, res, next) => {
   const params = req.query;
 
-  const puestos = await puestoService.getAllPuestos(params);
+  const cursos = await cursoService.getAllCursos(params);
 
   res.status(200).json({
     success: true,
-    results: puestos.length,
-    data: puestos,
+    results: cursos.length,
+    data: cursos,
   });
 });
 
 // --- ACTUALIZAR ---
-export const updatePuesto = catchAsync(async (req, res, next) => {
-  const { puestoId } = req.params;
+export const updateCurso = catchAsync(async (req, res, next) => {
+  const { CursoId } = req.params;
 
-  const updatedPuesto = await puestoService.updatePuesto(puestoId, req.body);
+  const updatedCurso = await cursoService.updateCurso(CursoId, req.body);
 
   res.status(200).json({
     success: true,
-    data: updatedPuesto,
+    data: updatedCurso,
   });
 });
 
 // --- ELIMINAR (Soft Delete) ---
-export const deletePuesto = catchAsync(async (req, res, next) => {
-  const { puestoId } = req.params;
+export const deleteCurso = catchAsync(async (req, res, next) => {
+  const { CursoId } = req.params;
 
   // El servicio se encarga de cambiar el estatus 'activo' a false
-  await puestoService.deletePuesto(puestoId);
+  await cursoService.deleteCurso(CursoId);
 
   res.status(200).json({
     success: true,
-    message: "Puesto desactivado correctamente",
+    message: "Curso desactivado correctamente",
     data: null,
   });
 });

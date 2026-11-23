@@ -38,7 +38,7 @@ export const createCurso = async (cursoData) => {
 };
 
 // --- LEER UNO (Read) ---
-export const getPuesto = async (puestoId) => {
+export const getCurso = async (puestoId) => {
   if (!puestoId)
     throw new AppError(
       "puesto_service",
@@ -58,15 +58,22 @@ export const getPuesto = async (puestoId) => {
   return depa.rows[0];
 };
 
-export const getAllPuestos = async (params = {}) => {
+export const getAllCursos = async (params = {}) => {
   const db = Database.getInstance();
 
-  let baseQuery = "SELECT * FROM puesto";
+  let baseQuery = "SELECT * FROM curso";
   const conditions = [];
   const values = [];
   let paramCounter = 1;
 
-  const camposPermitidos = ["nombrePuesto", "puestoId", "activo"];
+  const camposPermitidos = [
+    "codigocurso",
+    "nombre",
+    "horaspracticas",
+    "horasteoria",
+    "generadc3",
+    "activo",
+  ];
 
   // 3. Construcción dinámica de filtros
   for (const [key, value] of Object.entries(params)) {
@@ -87,12 +94,12 @@ export const getAllPuestos = async (params = {}) => {
     baseQuery += " WHERE " + conditions.join(" AND ");
   }
 
-  baseQuery += " ORDER BY nombrePuesto ASC";
+  baseQuery += " ORDER BY nombre ASC";
 
   // 5. Ejecutar la consulta pasando el arreglo de valores de forma segura
-  const puestos = await db.query(baseQuery, values);
+  const cursos = await db.query(baseQuery, values);
 
-  return puestos.rows;
+  return cursos.rows;
 };
 
 // --- ACTUALIZAR (Update) ---

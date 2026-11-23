@@ -29,6 +29,21 @@ export const getEmpleado = async (empleadoId) => {
   }
 };
 
+export const getBateriaByEmpleado = async (empleadoId) => {
+  try {
+    const response = await api.get(`/empleados/${empleadoId}/baterias`);
+    return response.data; // Devuelve el JSON de tu backend
+  } catch (error) {
+    if (error.response) {
+      throw new Error(
+        error.response.data.message ||
+          "Error de servidor, intenta de nuevo mas tarde",
+      );
+    }
+    throw new Error("Error de conexión al servidor");
+  }
+};
+
 export const createEmpleado = async (data) => {
   try {
     const resultData = createEmpleadoSchema.safeParse(data);

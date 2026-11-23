@@ -1,5 +1,6 @@
 import express from "express";
 import * as empleadoController from "./empleado.controller.js";
+
 import { protect, restrictTo } from "../auth/auth.controller.js";
 
 import { validate } from "../../middlewares/validate.data.js";
@@ -29,7 +30,7 @@ router
   )
   .delete(restrictTo("administrador"), empleadoController.deleteEmpleado);
 
-router.get("/:empleadoId/baterias", empleadoController.getBateriasByPlaza);
+router.get("/:empleadoId/baterias", empleadoController.getBateriasByEmpleado);
 
 router.patch(
   "/:empleadoId/assign",

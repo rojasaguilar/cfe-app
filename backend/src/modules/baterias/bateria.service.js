@@ -1,5 +1,6 @@
 import { Database } from "../../config/Database.js";
 import { AppError } from "../../utils/error.js";
+import { getPlaza } from "../plazas/plaza.service.js";
 
 export const createBateria = async (bateriaData) => {
   const db = Database.getInstance();
@@ -46,27 +47,6 @@ export const createBateria = async (bateriaData) => {
     return bateriaCreada;
   });
 };
-
-// --- LEER UNO (Read) ---
-// export const getPuesto = async (puestoId) => {
-//   if (!puestoId)
-//     throw new AppError(
-//       "puesto_service",
-//       "Por favor, ingresa todos los campos",
-//       404,
-//     );
-
-//   const db = Database.getInstance();
-
-//   const depa = await db.query("SELECT * FROM puesto WHERE puestoId = $1", [
-//     puestoId,
-//   ]);
-
-//   if (depa.rowCount === 0)
-//     throw new AppError("puesto_service", "El puesto no existe", 404);
-
-//   return depa.rows[0];
-// };
 
 const COLUMN_MAP = {
   bateriaId: "b.bateriaid",
@@ -154,8 +134,12 @@ export const getAllBaterias = async (params = {}) => {
   }));
 };
 
-export const getBateria = async (bateriaId) => {
+export const getBateria = async (bateriaId, params = {}) => {
   const db = Database.getInstance();
+
+  if (!bateriaId) {
+    return null;
+  }
 
   let baseQuery = `
     SELECT
@@ -173,8 +157,13 @@ export const getBateria = async (bateriaId) => {
   const values = [];
   let paramCounter = 1;
 
+  conditions.push(`b.bateriaid = $${paramCounter}`);
+  values.push(bateriaId);
+  paramCounter++;
+
   for (const [key, value] of Object.entries(params)) {
     if (value === undefined || value === null || value === "") continue;
+    if (key === "bateriaId") continue;
 
     if (Object.prototype.hasOwnProperty.call(COLUMN_MAP, key)) {
       conditions.push(`${COLUMN_MAP[key]} = $${paramCounter}`);
@@ -187,24 +176,19 @@ export const getBateria = async (bateriaId) => {
     }
   }
 
-  if (conditions.length > 0) {
-    baseQuery += ` WHERE ${conditions.join(" AND ")}`;
-  }
-
-  ((baseQuery += ` WHERE bateriaid = $1`), [bateriaId]);
+  baseQuery += ` WHERE ${conditions.join(" AND ")}`;
 
   const { rows: baterias } = await db.query(baseQuery, values);
 
   if (baterias.length === 0) {
-    return [];
+    return null;
   }
 
-  const bateriaIds = baterias.map((b) => b.bateriaid);
+  const bateria = baterias[0];
 
   const { rows: cursosRows } = await db.query(
     `
       SELECT
-        cb.bateriaid,
         cb.cursoid AS "cursoId",
         c.codigocurso AS "codigoCurso",
         c.nombre AS "nombreCurso",
@@ -214,65 +198,103 @@ export const getBateria = async (bateriaId) => {
         c.activo AS "activoCurso"
       FROM curso_bateria cb
       INNER JOIN curso c ON cb.cursoid = c.cursoid
-      WHERE cb.bateriaid = ANY($1::uuid[])
+      WHERE cb.bateriaid = $1::uuid
       ORDER BY c.nombre ASC
     `,
-    [bateriaIds],
+    [bateria.bateriaid],
   );
 
-  const cursosPorBateria = new Map();
-  for (const row of cursosRows) {
-    const { bateriaid, ...cursoData } = row;
-    if (!cursosPorBateria.has(bateriaid)) {
-      cursosPorBateria.set(bateriaid, []);
-    }
-    cursosPorBateria.get(bateriaid).push(cursoData);
-  }
-
-  return baterias.map((bateria) => ({
+  return {
     ...bateria,
-    cursos: cursosPorBateria.get(bateria.bateriaid) ?? [],
-  }));
+    cursos: cursosRows,
+  };
 };
 
-export const getBateriasByPlaza = async (empleadoId) => {
+export const getBateriasByEmpleado = async (empleadoId) => {
   const db = Database.getInstance();
 
   const plazaExists = await db.query(
-    `SELECT plazaId FROM empleado WHERE empleadoid = $1`,
+    `SELECT plazaid FROM empleado WHERE empleadoid = $1`,
     [empleadoId],
   );
 
+  if (!plazaExists.rowCount === 0)
+    throw new AppError(
+      "bateria_service",
+      "Este empleado no tiene una plaza adjunta, por lo que no es posible obtener sus baterias",
+      400,
+    );
+
   const plazaId = plazaExists.rows[0].plazaid;
 
-  console.log(plazaId);
-
-  // if (!plazaId.rows[0])
-  //   throw new AppError(
-  //     `bateria_service`,
-  //     "No se tiene asignada una plaza para este trabajador",
-  //     400,
-  //   );
+  if (plazaId.rowCount === 0)
+    throw new AppError(
+      `bateria_service`,
+      "No se tiene asignada una plaza para este trabajador",
+      400,
+    );
 
   let queryToGetPuestoId = `
     SELECT puestoId, departamentoid FROM plaza WHERE plazaid=$1
   `;
 
-  const res = await db.query(queryToGetPuestoId, [plazaId]);
+  const resPuestoIdDepartamentoId = await db.query(queryToGetPuestoId, [
+    plazaId,
+  ]);
 
-  const { puestoid, departamentoid } = res.rows[0];
+  const { puestoid, departamentoid } = resPuestoIdDepartamentoId.rows[0];
 
-  let qq = `
-    SELECT * FROM bateria WHERE puestoid=$1 AND departamentoid=$2
-  `;
+  const queryBateriaId = `SELECT bateriaid FROM bateria WHERE puestoid=$1 AND departamentoid=$2`;
 
-  const res2 = await db.query(qq, [puestoid, departamentoid]);
-  console.log(res2.rows);
-  // const baterias await
+  const bateriaId = await db.query(queryBateriaId, [puestoid, departamentoid]);
+
+  if (bateriaId.rowCount === 0)
+    throw new AppError(
+      "bateria_service",
+      "No existe una bateria asociada al puesto y departamento de este empleado",
+      404,
+    );
+
+  const bateriaActual = await getBateria(bateriaId.rows[0].bateriaid);
+
+  const plazaPadreId = await getPlaza(plazaId);
+
+  console.log(plazaPadreId.plazapadreid);
+  let bateriaSuperior = {};
+
+  if (plazaPadreId.plazapadreid) {
+    const resPuestoIdDepartamentoId = await db.query(
+      ` SELECT puestoId, departamentoid FROM plaza WHERE plazaid=$1`,
+      [plazaPadreId.plazapadreid],
+    );
+
+    const { puestoid, departamentoid } = resPuestoIdDepartamentoId.rows[0];
+
+    const queryBateriaId = `SELECT bateriaid FROM bateria WHERE puestoid=$1 AND departamentoid=$2`;
+
+    const bateriaId = await db.query(queryBateriaId, [
+      puestoid,
+      departamentoid,
+    ]);
+
+    if (bateriaId.rowCount === 0)
+      throw new AppError(
+        "bateria_service",
+        "No existe una bateria asociada al puesto y departamento de este empleado",
+        404,
+      );
+
+    bateriaSuperior = await getBateria(bateriaId.rows[0].bateriaid);
+  }
+
+  return {
+    bateriaActual,
+    bateriaSuperior,
+  };
 };
 
 // --- ACTUALIZAR (Update) ---
-export const updatePuesto = async (puestoId, puestoData) => {
+export const updateBateria = async (puestoId, puestoData) => {
   // Extraemos ambos campos. Usamos ?? {} por si puestoData es undefined
   const { nombrePuesto, activo } = puestoData ?? {};
 

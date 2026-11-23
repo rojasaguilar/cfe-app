@@ -76,15 +76,13 @@ export const deleteEmpleado = catchAsync(async (req, res, next) => {
   });
 });
 
-export const getBateriasByPlaza = catchAsync(async (req, res, next) => {
+export const getBateriasByEmpleado = catchAsync(async (req, res, next) => {
   const { empleadoId } = req.params;
 
-  // El servicio se encarga de cambiar el estatus 'activo' a false
-  const baterias = await bateriaService.getBateriasByPlaza(empleadoId);
+  const baterias = await bateriaService.getBateriasByEmpleado(empleadoId);
 
   res.status(200).json({
     success: true,
-    message: "Empleado desactivado correctamente",
     data: baterias,
   });
 });

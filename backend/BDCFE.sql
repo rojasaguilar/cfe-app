@@ -35,6 +35,11 @@ create table empleado (
 	plazaId UUID unique references plaza(plazaId) on
 delete
 	cascade,
+	fechaNacimiento DATE,
+	estadoCivil varchar(10),
+	domicilio text,
+	telefono text, 
+	correo text,	
 	activo boolean default true,
 	
 	constraint chk_empleado_rtt_rpe
@@ -88,6 +93,13 @@ CREATE TABLE curso_bateria (
 );
 
 delete from bateria;
+
+alter table empleado 
+add column fechaNacimiento DATE,
+add column	estadoCivil varchar(10),
+add column	domicilio text,
+add column	telefono text, 
+add column	correo text;
 
 drop table curso;
 drop table curso_bateria;

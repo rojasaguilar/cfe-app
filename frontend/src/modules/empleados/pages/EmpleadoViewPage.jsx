@@ -1,11 +1,14 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { getEmpleado } from "../services/empleado.service";
+import {
+  getBateriaByEmpleado,
+  getEmpleado,
+} from "../services/empleado.service";
 import { DatosGeneralesCard } from "../components/DatosGeneralesCard";
 import { BateriasCard } from "../components/BateriasCard";
 import { ExpedienteTabsCard } from "../components/ExpedienteTabsCard";
-import { Alert, Avatar, Box, Button, CircularProgress } from "@mui/material";
-import { ArrowLeft, IdCard } from "lucide-react";
+import { Alert, Box, Button, CircularProgress } from "@mui/material";
+import { ArrowLeft } from "lucide-react";
 
 export const EmpleadoViewPage = () => {
   const { empleadoid } = useParams();
@@ -14,6 +17,7 @@ export const EmpleadoViewPage = () => {
   const [empleado, setEmpleado] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [baterias, setBaterias] = useState({});
 
   useEffect(() => {
     let active = true;
@@ -27,6 +31,9 @@ export const EmpleadoViewPage = () => {
         if (active) {
           setEmpleado(data);
         }
+        const bateriasResponse = await getBateriaByEmpleado(empleadoid);
+        const bateriasData = bateriasResponse?.data ?? bateriasResponse;
+        setBaterias(bateriasData);
       } catch (err) {
         console.error("Error al obtener empleado:", err);
         if (active) {
@@ -53,6 +60,8 @@ export const EmpleadoViewPage = () => {
       active = false;
     };
   }, [empleadoid]);
+
+  console.log(baterias);
 
   const fullName =
     [empleado?.nombres, empleado?.apellidos].filter(Boolean).join(" ") ||
@@ -85,7 +94,7 @@ export const EmpleadoViewPage = () => {
   }
 
   return (
-    <main className="max-w-7xl mx-auto p-4 sm:p-6 space-y-6">
+    <main className="max-w-8xl mx-auto p-4 sm:p-6 space-y-6">
       <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <Button
           startIcon={<ArrowLeft size={16} />}
@@ -105,8 +114,8 @@ export const EmpleadoViewPage = () => {
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <DatosGeneralesCard empleado={empleado} />
         <BateriasCard
-          bateriaActual={empleado.bateriaActual}
-          bateriaSuperior={empleado.bateriaSuperior}
+          bateriaActual={baterias.bateriaActual}
+          bateriaSuperior={baterias.bateriaSuperior}
         />
       </section>
 

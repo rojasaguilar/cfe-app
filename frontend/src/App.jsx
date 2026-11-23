@@ -10,6 +10,8 @@ import { LandingPage } from "./components/Landing";
 import { PuestosPage } from "./modules/puestos/pages/PuestosPage";
 import { EmpleadosPage } from "./modules/empleados/pages/EmpleadosPage";
 import { EmpleadoViewPage } from "./modules/empleados/pages/EmpleadoViewPage";
+import { CursosPage } from "./modules/cursos/pages/CursosPage";
+import { BateriasPage } from "./modules/baterias/pages/BateriasPage";
 
 function App() {
   return (
@@ -44,6 +46,9 @@ function App() {
               <Route path="/organigrama" element={<OrganigramaPage />} />
 
               <Route path="/puestos" element={<PuestosPage />} />
+
+              <Route path="/cursos" element={<CursosPage />} />
+              <Route path="/baterias" element={<BateriasPage />} />
             </Route>
           </Route>
 

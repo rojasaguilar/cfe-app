@@ -49,7 +49,7 @@ export const getPlaza = async (plazaId) => {
 
   const db = Database.getInstance();
 
-  const plaza = await db.query("SELECT * FROM plaza WHERE plazaId = $1", [
+  const plaza = await db.query("SELECT * FROM plaza WHERE plazaid = $1", [
     plazaId,
   ]);
 
