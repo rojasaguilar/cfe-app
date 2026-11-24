@@ -26,7 +26,7 @@ delete
 -- USUARIOS/EMPLEADOS
 create table empleado (
 	empleadoId UUID primary key default gen_random_uuid(),
-	rpe VARCHAR (12) unique not null,
+	rpe VARCHAR (12) unique,
 	rtt varchar(12) unique,
 	nombres varchar(42) unique not null,
 	apellidos varchar(56) not null,

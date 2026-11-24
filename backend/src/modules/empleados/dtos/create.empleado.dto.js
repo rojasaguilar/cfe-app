@@ -46,7 +46,7 @@ export const createEmpleadoSchema = z
       .toUpperCase(),
 
     fechaNacimiento: z
-      // .string()
+      .string()
       .date({ error: "Formato de fecha de nacimiento inválido (YYYY-MM-DD)" })
       .nullable()
       .optional(),

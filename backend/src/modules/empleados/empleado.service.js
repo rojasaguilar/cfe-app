@@ -3,20 +3,18 @@ import { AppError } from "../../utils/error.js";
 
 // --- CREAR (Create) ---
 export const createEmpleado = async (empleadoData) => {
+  const identificadorEmpleado = Object.hasOwn(empleadoData, "rpe")
+    ? "rpe"
+    : "rtt";
+
+  console.log(identificadorEmpleado);
   const db = Database.getInstance();
 
   const newEmpleado = await db.query(
-    `INSERT INTO empleado (rpe, rtt, nombres, apellidos, rfc, curp)
-     VALUES ($1,$2,$3,$4,$5,$6)
+    `INSERT INTO empleado (${identificadorEmpleado}, nombres, apellidos, rfc, curp, fechanacimiento, estadocivil, domicilio, telefono, correo)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
      RETURNING *`,
-    [
-      empleadoData.rpe,
-      empleadoData.rtt,
-      empleadoData.nombres,
-      empleadoData.apellidos,
-      empleadoData.rfc,
-      empleadoData.curp,
-    ],
+    Object.values(empleadoData),
   );
 
   return newEmpleado.rows[0];
