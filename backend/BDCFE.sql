@@ -1788,48 +1788,26 @@ INSERT INTO cursoespecialidad (especialidadId, cursoId) VALUES
     ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', 'f7baef08-d5d5-4133-b92c-d35b422b0718'), -- WORD AVANZADO 2019
     ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', '3087ea6a-18e1-4f8b-acc2-d630d07255d8');
 
--- ARMANDO CRUZ CAMBRON | RPE: 9JLHG | Clave: CGY0175 | Estado CSV: APROVECHAMIENTO | Calif CSV: 94,63
-INSERT INTO cursoKardex (kardexId, cursoId, fechaInicioCurso, estadoCurso, tipoProgramacion, fechaTerminoCurso, modalidad, calificacion, urlDC3, fechaSubidaDC3)
-VALUES ('325128bb-840d-447d-813a-c5b4a5fce4a5', '69b6b445-d236-44e7-ae9f-c8ee4477dff7', '2026-01-25', 'APROBADO', 'F', '2026-02-19', NULL, 95, NULL, NULL);
+INSERT INTO kardex (empleadoId, cursoId, fechaInicioCurso, estadoCurso, tipoProgramacion, fechaTerminoCurso, modalidad, calificacion, urlDC3, fechaSubidaDC3)
+VALUES ( '66ef2571-b4e7-4f05-a1a2-cb71c02805e6', '69b6b445-d236-44e7-ae9f-c8ee4477dff7', '2026-01-25', 'APROBADO', 'F', '2026-02-19', NULL, 95, NULL, NULL);
 
--- NANCY MINELLI MARTINEZ MORAN | RPE: 9JLJX | Clave: CAY0267 | Estado CSV: APROVECHAMIENTO | Calif CSV: 94,29
-INSERT INTO cursoKardex (kardexId, cursoId, fechaInicioCurso, estadoCurso, tipoProgramacion, fechaTerminoCurso, modalidad, calificacion, urlDC3, fechaSubidaDC3)
-VALUES ('70d9e0df-457d-4a49-8706-af31a4bcda1b', 'c5ac1c74-879c-480c-a10d-d2535db21bd6', '2026-02-08', 'APROBADO', 'F', '2026-02-12', NULL, 94, NULL, NULL);
+INSERT INTO kardex (empleadoId, cursoId, fechaInicioCurso, estadoCurso, tipoProgramacion, fechaTerminoCurso, modalidad, calificacion, urlDC3, fechaSubidaDC3)
+VALUES ( 'e33e26a2-1ed5-462d-a518-2c1df4c50f1c', 'c5ac1c74-879c-480c-a10d-d2535db21bd6', '2026-02-08', 'APROBADO', 'F', '2026-02-12', NULL, 94, NULL, NULL);
 
--- MAURICIO PEREZ MEDELLIN | RPE: 9JLVX | Clave: CGY0161 | Estado CSV: APROVECHAMIENTO | Calif CSV: 90
-INSERT INTO cursoKardex (kardexId, cursoId, fechaInicioCurso, estadoCurso, tipoProgramacion, fechaTerminoCurso, modalidad, calificacion, urlDC3, fechaSubidaDC3)
-VALUES ('86bcc846-9d7d-4d36-a59a-7ad4991ba351', '7b16c2f3-66e0-463b-b615-a3ca68e03f40', '2026-02-22', 'APROBADO', 'F', '2026-03-05', NULL, 90, NULL, NULL);
+INSERT INTO kardex (empleadoId, cursoId, fechaInicioCurso, estadoCurso, tipoProgramacion, fechaTerminoCurso, modalidad, calificacion, urlDC3, fechaSubidaDC3)
+VALUES ( '877a98ab-6f3e-4e2b-a867-f93dddd0df8c', '7b16c2f3-66e0-463b-b615-a3ca68e03f40', '2026-02-22', 'APROBADO', 'F', '2026-03-05', NULL, 90, NULL, NULL);
 
--- GERMAN OCHOA VILLARREAL | RPE: 9JLJ7 | Clave: CAD0090 | Estado CSV: APROVECHAMIENTO | Calif CSV: 100
-INSERT INTO cursoKardex (kardexId, cursoId, fechaInicioCurso, estadoCurso, tipoProgramacion, fechaTerminoCurso, modalidad, calificacion, urlDC3, fechaSubidaDC3)
-VALUES ('6ced5908-8985-43a3-8de6-3330d0738e75', '459a657b-7ab6-46a0-9d9b-b46bf67d9da3', '2026-03-01', 'APROBADO', 'F', '2026-03-12', NULL, 100, NULL, NULL);
+INSERT INTO kardex (empleadoId, cursoId, fechaInicioCurso, estadoCurso, tipoProgramacion, fechaTerminoCurso, modalidad, calificacion, urlDC3, fechaSubidaDC3)
+VALUES ( '441540d1-ff5c-4898-917b-1fb6cd37b920', '459a657b-7ab6-46a0-9d9b-b46bf67d9da3', '2026-03-01', 'APROBADO', 'F', '2026-03-12', NULL, 100, NULL, NULL);
 
--- HORACIO BARAJAS GARCIA | RPE: 9AVV9 | Clave: CIY0205 | Estado CSV: APROVECHAMIENTO | Calif CSV: 93,02
-INSERT INTO cursoKardex (kardexId, cursoId, fechaInicioCurso, estadoCurso, tipoProgramacion, fechaTerminoCurso, modalidad, calificacion, urlDC3, fechaSubidaDC3)
-VALUES ('f0b3bc65-5392-4e6e-a3c0-eac5653ea98d', '4b222cf9-7c4b-4b32-86be-f03f74cf1d7e', '2026-03-22', 'APROBADO', 'F', '2026-04-16', NULL, 93, NULL, NULL);
+INSERT INTO kardex (empleadoId, cursoId, fechaInicioCurso, estadoCurso, tipoProgramacion, fechaTerminoCurso, modalidad, calificacion, urlDC3, fechaSubidaDC3)
+VALUES ( '60b80bd2-7ebe-4a24-8670-92a916db26a1', '4b222cf9-7c4b-4b32-86be-f03f74cf1d7e', '2026-03-22', 'APROBADO', 'F', '2026-04-16', NULL, 93, NULL, NULL);
 
--- GABRIELA MARIA ESTRADA CASTREJON | RPE: 9JLVW | Clave: CAY0263 | Estado CSV: APROVECHAMIENTO | Calif CSV: 92,84
-INSERT INTO cursoKardex (kardexId, cursoId, fechaInicioCurso, estadoCurso, tipoProgramacion, fechaTerminoCurso, modalidad, calificacion, urlDC3, fechaSubidaDC3)
-VALUES ('09c0df2b-f15a-4c60-9739-679c8f596ffb', '4a5a2fbf-6f08-4bf6-8deb-4f45a3319492', '2026-03-29', 'APROBADO', 'F', '2026-04-09', NULL, 93, NULL, NULL);
-
--- MARCO ANTONIO RIVERA DE SANTIAGO | RPE: 9NM53 | Clave: CGY0147 | Estado CSV: APROVECHAMIENTO | Calif CSV: 88,83
-INSERT INTO cursoKardex (kardexId, cursoId, fechaInicioCurso, estadoCurso, tipoProgramacion, fechaTerminoCurso, modalidad, calificacion, urlDC3, fechaSubidaDC3)
-VALUES ('44879ae7-3f45-431a-bc35-b0e6090e5201', '5ed9f3e1-d070-46dd-b4dc-e8a43c7763e5', '2026-04-12', 'APROBADO', 'F', '2026-04-16', NULL, 89, NULL, NULL);
-
--- ALAN EMMANUEL LEON MACHAIN | RPE: 9NM4T | Clave: CGY0147 | Estado CSV: APROVECHAMIENTO | Calif CSV: 91,43
-INSERT INTO cursoKardex (kardexId, cursoId, fechaInicioCurso, estadoCurso, tipoProgramacion, fechaTerminoCurso, modalidad, calificacion, urlDC3, fechaSubidaDC3)
-VALUES ('99854e42-cab1-4ab1-a8a1-c22d1596eb67', '5ed9f3e1-d070-46dd-b4dc-e8a43c7763e5', '2026-04-12', 'APROBADO', 'F', '2026-04-16', NULL, 91, NULL, NULL);
-
--- BERENICE LORETO OCHOA | RPE: 9JJBW | Clave: CAY0004 | Estado CSV: APROVECHAMIENTO | Calif CSV: 98,48
-INSERT INTO cursoKardex (kardexId, cursoId, fechaInicioCurso, estadoCurso, tipoProgramacion, fechaTerminoCurso, modalidad, calificacion, urlDC3, fechaSubidaDC3)
-VALUES ('33c35612-ba9d-4bfb-989a-f9d4ffca9499', '95087a7d-5d66-4d8a-aff2-28231f2b6241', '2026-04-19', 'APROBADO', 'F', '2026-05-14', NULL, 98, NULL, NULL);
-
--- LUIS FERNANDO TOSCANO AMEZQUITA | RPE: 9JLXG | Clave: CIY0206 | Estado CSV: INSCRITO | Calif CSV: 0
-INSERT INTO cursoKardex (kardexId, cursoId, fechaInicioCurso, estadoCurso, tipoProgramacion, fechaTerminoCurso, modalidad, calificacion, urlDC3, fechaSubidaDC3)
+INSERT INTO kardex (empleadoId, cursoId, fechaInicioCurso, estadoCurso, tipoProgramacion, fechaTerminoCurso, modalidad, calificacion, urlDC3, fechaSubidaDC3)
 VALUES 
-('5c59fce4-b0a8-4a14-83fc-0877d5d92f08', '27d47cb5-5fc2-44b2-9c6a-8ea9b1b7c442', '2026-11-08', 'INSCRITO', 'F', NULL, NULL, NULL, NULL, NULL),
-('5c59fce4-b0a8-4a14-83fc-0877d5d92f08', 'c5abc2f0-6adf-48d0-80db-bf7b427c33c9', '2026-11-08', 'INSCRITO', 'F', NULL, NULL, NULL, NULL, NULL),
-('9bb9e2e1-f822-486a-9b83-475cbe2b63e5', 'cdd03831-081f-4edd-8e4b-80186d10f474', '2026-11-08', 'INSCRITO', 'F', NULL, NULL, NULL, NULL, NULL);
+('21282f61-3571-40e9-b212-6cc7ccb0a814', '27d47cb5-5fc2-44b2-9c6a-8ea9b1b7c442', '2026-11-08', 'INSCRITO', 'F', NULL, NULL, NULL, NULL, NULL),
+( '21282f61-3571-40e9-b212-6cc7ccb0a814', 'c5abc2f0-6adf-48d0-80db-bf7b427c33c9', '2026-11-08', 'INSCRITO', 'F', NULL, NULL, NULL, NULL, NULL),
+( '21282f61-3571-40e9-b212-6cc7ccb0a814', 'cdd03831-081f-4edd-8e4b-80186d10f474', '2026-11-08', 'INSCRITO', 'F', NULL, NULL, NULL, NULL, NULL);
 
 select e.empleadoid, e.rpe, c.cursoid, c.codigocurso, c.nombre as nombreCurso, c.horaspracticas, c.horasteoria, c.tipocurso, ck.modalidad, c.generadc3, ck.fechainiciocurso, ck.fechaterminocurso 
 from kardex k
@@ -1837,3 +1815,24 @@ inner join cursokardex ck on ck.kardexid = k.kardexid
 inner join empleado e on e.empleadoid = k.empleadoid 
 inner join curso c on c.cursoid = ck.cursoid 
 where k.kardexid  = '5c59fce4-b0a8-4a14-83fc-0877d5d92f08'
+
+
+ SELECT
+        e.empleadoid,
+        e.rpe,
+        c.cursoid,
+        c.codigocurso,
+        c.nombre AS nombreCurso,
+        c.horaspracticas,
+        c.horasteoria,
+        c.tipocurso,
+        k.modalidad,
+        c.generadc3,
+        k.fechainiciocurso,
+        k.fechaterminocurso,
+        k.calificacion,
+        k.estadocurso
+      FROM kardex k
+      INNER JOIN empleado e ON e.empleadoid = k.empleadoid
+      LEFT JOIN curso c ON c.cursoid = k.cursoid
+      WHERE e.empleadoid = '21282f61-3571-40e9-b212-6cc7ccb0a814'
