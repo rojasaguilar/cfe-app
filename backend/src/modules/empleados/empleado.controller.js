@@ -2,6 +2,7 @@ import catchAsync from "../../utils/catchAsync.js";
 import { AppError } from "../../utils/error.js";
 import * as empleadoService from "./empleado.service.js";
 import * as bateriaService from "./../baterias/bateria.service.js";
+import * as kardexService from "./../kardex/kardex.service.js";
 
 // --- CREAR ---
 export const createEmpleado = catchAsync(async (req, res, next) => {
@@ -84,6 +85,17 @@ export const getBateriasByEmpleado = catchAsync(async (req, res, next) => {
   res.status(200).json({
     success: true,
     data: baterias,
+  });
+});
+
+export const getKardex = catchAsync(async (req, res, next) => {
+  const { empleadoId } = req.params;
+
+  const kardex = await kardexService.getKardexFromEmpleado(empleadoId);
+
+  res.status(200).json({
+    success: true,
+    data: kardex,
   });
 });
 

@@ -38,4 +38,6 @@ router.patch(
   empleadoController.assignPlaza,
 );
 
+router.get("/:empleadoId/kardex",empleadoController.getKardex);
+
 export default router;
