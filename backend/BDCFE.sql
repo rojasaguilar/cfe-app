@@ -105,14 +105,15 @@ CREATE TABLE curso_bateria (
   CONSTRAINT pk_curso_bateria PRIMARY KEY (bateriaId, cursoId)
 );
 
-create table kardex (
-	kardexId UUID primary key not null default gen_random_uuid(),
-	empleadoId uuid not null unique references empleado (empleadoId)
-);
+--create table kardex (
+--	kardexId UUID primary key not null default gen_random_uuid(),
+--	empleadoId uuid not null references empleado (empleadoId)
+--);
 
-create table cursoKardex(
-	cursoKardexId UUID primary key not null default gen_random_uuid(),
-	kardexId uuid not null references kardex (kardexId),
+create table kardex(
+	kardexId UUID primary key not null default gen_random_uuid(),
+	empleadoId uuid not null references empleado (empleadoId),
+--	kardexId uuid not null references kardex (kardexId),
 	cursoId uuid not null references curso (cursoId),
 	fechaInicioCurso DATE not null ,
 	estadoCurso varchar(30) not null check(estadoCurso in ('INSCRITO', 'CURSANDO', 'APROBADO', 'REPROBADO', 'CURSADO_SIN_CALIFICACION')),
@@ -1836,7 +1837,3 @@ inner join cursokardex ck on ck.kardexid = k.kardexid
 inner join empleado e on e.empleadoid = k.empleadoid 
 inner join curso c on c.cursoid = ck.cursoid 
 where k.kardexid  = '5c59fce4-b0a8-4a14-83fc-0877d5d92f08'
-
-update cursokardex 
-set modalidad = 'DISTANCIA (A)'
-where kardexid = '5c59fce4-b0a8-4a14-83fc-0877d5d92f08'

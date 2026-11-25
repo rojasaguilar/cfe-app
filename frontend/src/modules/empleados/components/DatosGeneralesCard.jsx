@@ -5,7 +5,7 @@ const InfoItem = ({ label, value }) => (
     <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 sm:w-40 shrink-0">
       {label}
     </span>
-    <span className="text-sm font-medium text-slate-800 break-words">
+    <span className="text-sm font-medium text-slate-800 wrap-break-word">
       {value || "No disponible"}
     </span>
   </div>

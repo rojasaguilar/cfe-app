@@ -17,7 +17,7 @@ export const getKardexFromEmpleado = async (empleadoId) => {
     [empleadoId],
   );
 
-  if(empleadoExists.rowCount === 0)
+  if (empleadoExists.rowCount === 0)
     throw new AppError(
       "kardex_service",
       `Empleado con id: ${empleadoId} no existe`,
@@ -26,7 +26,7 @@ export const getKardexFromEmpleado = async (empleadoId) => {
 
   const kardex = await db.query(
     `
-      SELECT
+     SELECT
         e.empleadoid,
         e.rpe,
         c.cursoid,
@@ -35,24 +35,26 @@ export const getKardexFromEmpleado = async (empleadoId) => {
         c.horaspracticas,
         c.horasteoria,
         c.tipocurso,
-        ck.modalidad,
+        k.modalidad,
         c.generadc3,
-        ck.fechainiciocurso,
-        ck.fechaterminocurso,
-        ck.calificacion,
-        ck.estadocurso
+        k.fechainiciocurso,
+        k.fechaterminocurso,
+        k.calificacion,
+        k.estadocurso
       FROM kardex k
       INNER JOIN empleado e ON e.empleadoid = k.empleadoid
-      LEFT JOIN cursokardex ck ON ck.kardexid = k.kardexid
-      LEFT JOIN curso c ON c.cursoid = ck.cursoid
+      LEFT JOIN curso c ON c.cursoid = k.cursoid
       WHERE e.empleadoid = $1
     `,
     [empleadoId],
   );
 
-  if (kardex.rows.length === 0) {
-    return null;
-  }
+  if (kardex.rows.length === 0)
+    throw new AppError(
+      "kardex_service",
+      "Este empleado no ha tomado ningun curso aún",
+      400,
+    );
 
   const { empleadoid, rpe } = kardex.rows[0];
 

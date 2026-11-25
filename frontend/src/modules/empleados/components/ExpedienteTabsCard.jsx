@@ -11,6 +11,8 @@ import {
   TableRow,
   Tabs,
 } from "@mui/material";
+import { KardexCard } from "./KardexCard";
+import KardexTable from "./KardexTable";
 
 const formatDate = (date) => {
   if (!date) return "No disponible";
@@ -40,9 +42,7 @@ const DatosPersonales = ({ empleado }) => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10 p-6">
       <div className="space-y-1">
-        <h3 className="text-sm font-semibold text-slate-900 mb-2">
-          Identidad
-        </h3>
+        <h3 className="text-sm font-semibold text-slate-900 mb-2">Identidad</h3>
         <InfoItem
           label="Fecha de nacimiento"
           value={formatDate(datos.fechanacimiento)}
@@ -63,54 +63,7 @@ const DatosPersonales = ({ empleado }) => {
   );
 };
 
-const Kardex = ({ empleado }) => {
-  const movimientos = empleado?.kardex || [];
-
-  return (
-    <TableContainer className="max-h-80 rounded-lg border border-slate-200">
-      <Table stickyHeader size="small">
-        <TableHead>
-          <TableRow>
-            <TableCell sx={{ fontWeight: 700, bgcolor: "#f8fafc" }}>
-              Fecha
-            </TableCell>
-            <TableCell sx={{ fontWeight: 700, bgcolor: "#f8fafc" }}>
-              Movimiento
-            </TableCell>
-            <TableCell sx={{ fontWeight: 700, bgcolor: "#f8fafc" }}>
-              Descripción
-            </TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {movimientos.length > 0 ? (
-            movimientos.map((movimiento, index) => (
-              <TableRow key={movimiento.id || index} hover>
-                <TableCell className="whitespace-nowrap">
-                  {formatDate(movimiento.fecha)}
-                </TableCell>
-                <TableCell className="font-medium">
-                  {movimiento.tipo || movimiento.movimiento || "—"}
-                </TableCell>
-                <TableCell>{movimiento.descripcion || "—"}</TableCell>
-              </TableRow>
-            ))
-          ) : (
-            <TableRow>
-              <TableCell colSpan={3} align="center">
-                <span className="block py-8 text-sm text-slate-500">
-                  No existen movimientos registrados en el Kardex.
-                </span>
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
-    </TableContainer>
-  );
-};
-
-export const ExpedienteTabsCard = ({ empleado }) => {
+export const ExpedienteTabsCard = ({ empleado, kardex }) => {
   const [informationTab, setInformationTab] = useState(0);
 
   return (
@@ -138,7 +91,7 @@ export const ExpedienteTabsCard = ({ empleado }) => {
         }}
       >
         <Tab label="Datos personales" />
-        {/* <Tab label="Kardex" /> */}
+        <Tab label="Kardex" />
       </Tabs>
 
       <Divider />
@@ -147,7 +100,8 @@ export const ExpedienteTabsCard = ({ empleado }) => {
         <DatosPersonales empleado={empleado} />
       ) : (
         <div className="p-6">
-          <Kardex empleado={empleado} />
+          {/* <KardexCard kardex={kardex} /> */}
+          <KardexTable cursos={kardex?.cursos} />
         </div>
       )}
     </Paper>

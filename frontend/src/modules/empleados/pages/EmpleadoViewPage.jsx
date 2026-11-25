@@ -4,6 +4,7 @@ import {
   getBateriaByEmpleado,
   getEmpleado,
   updateEmpleado,
+  getKardexEmpleado,
 } from "../services/empleado.service";
 import { DatosGeneralesCard } from "../components/DatosGeneralesCard";
 import { BateriasCard } from "../components/BateriasCard";
@@ -20,7 +21,9 @@ export const EmpleadoViewPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [baterias, setBaterias] = useState({});
+  const [kardex, setKardex] = useState({});
   const [bateriasError, setBateriasError] = useState(null);
+  const [kardexError, setKardexError] = useState(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
 
   const fetchEmpleado = useCallback(
@@ -37,12 +40,26 @@ export const EmpleadoViewPage = () => {
         const bateriasResponse = await getBateriaByEmpleado(empleadoid);
         const bateriasData = bateriasResponse?.data ?? bateriasResponse;
         setBaterias(bateriasData);
-      } catch (bateriaErr) {
-        console.warn("Baterías no disponibles para el empleado:", bateriaErr);
-        setBaterias({});
-        setBateriasError(
-          bateriaErr?.message || "Batería no disponible para este empleado.",
-        );
+
+        const kardexResponse = await getKardexEmpleado(empleadoid);
+        const kardexData = kardexResponse?.data ?? kardexResponse;
+        setKardex(kardexData);
+        // } catch (bateriaErr) {
+      } catch (err) {
+        console.log(err.statusCode);
+        console.warn("Baterías no disponibles para el empleado:", err);
+        if (err.comingFrom === "bateria_service") {
+          setBaterias({});
+          setBateriasError(
+            err?.message || "Batería no disponible para este empleado.",
+          );
+        }
+        if (err.comingFrom === "kardex_service") {
+          setKardex([]);
+          setKardexError(
+            err?.message || "Kardex no disponible para este empleado.",
+          );
+        }
       } finally {
         if (showSpinner) {
           setLoading(false);
@@ -146,7 +163,7 @@ export const EmpleadoViewPage = () => {
         />
       </section>
 
-      <ExpedienteTabsCard empleado={empleado} />
+      <ExpedienteTabsCard empleado={empleado} kardex={kardex} />
 
       <EditEmpleadoModal
         open={isEditOpen}
