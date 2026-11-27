@@ -3,6 +3,7 @@ import { Database } from "../../config/Database.js";
 import { AppError } from "../../utils/error.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import { eventEmitter } from "./../../events/eventEmmiter.js";
 
 const signToken = (payload) =>
   jwt.sign({ ...payload }, envVars.JWT_SECRET, {
@@ -116,6 +117,13 @@ export const login = async (credentials) => {
   if (usertExists.rowCount === 0)
     throw new AppError("auth_service", "Usuario o contraseña incorrectos", 404);
 
+  // if (!userExists.rows[0].activo)
+  //   throw new AppError(
+  //     "auth_service",
+  //     "Usuario desactivado, consulta a tu superior",
+  //     409,
+  //   );
+
   if (!(await isPasswordCorrect(password, usertExists.rows[0].password)))
     throw new AppError("auth_service", "Usuario o contraseña incorrectos", 404);
 
@@ -123,7 +131,7 @@ export const login = async (credentials) => {
 
   delete userAccount["password"];
 
-  console.log(userAccount);
+  eventEmitter.emit("login", userAccount);
 
   return userAccount;
 };

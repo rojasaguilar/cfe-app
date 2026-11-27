@@ -1,0 +1,208 @@
+import { eventEmitter } from "../../events/eventEmmiter.js";
+import { Database } from "../../config/Database.js";
+import { AppError } from "../../utils/error.js";
+
+import { getDepa } from "../departamentos/depa.service.js";
+import { getPuesto } from "../puestos/puesto.service.js";
+
+// --- CREAR (Create) ---
+export const createPlan = async (planData) => {
+  const db = Database.getInstance();
+
+  const newPlan = await db.query(
+    `INSERT INTO planCapacitacion (validoHasta)
+     VALUES ($1)
+     RETURNING *`,
+    [planData.validoHasta],
+  );
+
+  if (newPlan.rowCount > 0) {
+    eventEmitter.emit("plan.created", newPlan.rows[0]);
+  }
+
+  return newPlan.rows[0];
+};
+
+// --- LEER UNO (Read) ---
+export const getPlaza = async (plazaId) => {
+  if (!plazaId)
+    throw new AppError(
+      "plaza_service",
+      "Por favor, ingresa todos los campos",
+      404,
+    );
+
+  const db = Database.getInstance();
+
+  const plaza = await db.query("SELECT * FROM plaza WHERE plazaid = $1", [
+    plazaId,
+  ]);
+
+  if (plaza.rowCount === 0)
+    throw new AppError("plaza_service", "El puesto no existe", 404);
+
+  return plaza.rows[0];
+};
+
+export const getAllPlazas = async (params = {}) => {
+  const db = Database.getInstance();
+
+  let baseQuery = "SELECT * FROM plaza";
+  const conditions = [];
+  const values = [];
+  let paramCounter = 1;
+
+  const camposPermitidos = ["noPlaza", "puestoId", "activo", "departamentoId"];
+
+  // 3. Construcción dinámica de filtros
+  for (const [key, value] of Object.entries(params)) {
+    if (camposPermitidos.includes(key)) {
+      // Si el campo es 'nombre', podríamos querer una búsqueda parcial (ILIKE) en vez de coincidencia exacta
+      if (key === "nombre") {
+        conditions.push(`${key} ILIKE $${paramCounter}`);
+        values.push(`%${value}%`); // % permite buscar partes de la palabra
+      } else {
+        conditions.push(`${key} = $${paramCounter}`);
+        values.push(value);
+      }
+      paramCounter++;
+    }
+  }
+
+  if (conditions.length > 0) {
+    baseQuery += " WHERE " + conditions.join(" AND ");
+  }
+
+  baseQuery += " ORDER BY nombre ASC";
+
+  // 5. Ejecutar la consulta pasando el arreglo de valores de forma segura
+  const plazas = await db.query(baseQuery, values);
+
+  return plazas.rows;
+};
+
+// --- ACTUALIZAR (Update) ---
+export const updatePlaza = async (plazaId, plazaData) => {
+  if (!plazaId) {
+    throw new AppError(
+      "plaza_service",
+      "Por favor, proporciona los datos para actualizar.",
+      400,
+    );
+  }
+
+  if (!plazaData) {
+    throw new AppError(
+      "plaza_service",
+      "Proporciona al menos un dato para actualizar.",
+      400,
+    );
+  }
+
+  // 1. Extraemos los campos permitidos del objeto entrante
+  const { noplaza, puestoid, plazapadreid, activo } = plazaData;
+  const fieldsToUpdate = {};
+
+  console.log("la plaza data", plazaData);
+
+  // 2. Filtramos: Si es null o undefined, lo ignoramos por completo
+  if (noplaza) fieldsToUpdate.noplaza = noplaza;
+  if (puestoid) fieldsToUpdate.puestoid = puestoid;
+  // if (plazapadreid != null)
+  // if (plazapadreid !== undefined && plazapadreid !== null)
+  fieldsToUpdate.plazapadreid = plazapadreid;
+
+  if (activo !== undefined && activo !== null) fieldsToUpdate.activo = activo;
+
+  const keys = Object.keys(fieldsToUpdate);
+
+  // Verificamos que quede al menos un campo válido para no romper la consulta SQL
+  if (keys.length === 0) {
+    throw new AppError(
+      "plaza_service",
+      "No hay campos válidos (no nulos) para actualizar.",
+      400,
+    );
+  }
+
+  // 3. Construimos el query dinámico y el arreglo de values limpio
+  const setClauses = [];
+  const values = [];
+  let index = 1;
+
+  for (const key of keys) {
+    // Si tus columnas requieren comillas por el camelCase, usa: `"${key}" = $${index}`
+    setClauses.push(`${key} = $${index}`);
+    values.push(fieldsToUpdate[key]);
+    index++;
+  }
+
+  // Agregamos el plazaId como el último parámetro para el WHERE
+  values.push(plazaId);
+
+  console.log(setClauses, values);
+  const queryString = `
+    UPDATE plaza 
+    SET ${setClauses.join(", ")}
+    WHERE "plazaid" = $${index} 
+    RETURNING *
+  `;
+  console.log(queryString);
+
+  const db = Database.getInstance();
+
+  // 4. Ejecutamos la actualización
+  const updatedPlaza = await db.query(queryString, values);
+
+  if (updatedPlaza.rowCount === 0) {
+    throw new AppError(
+      "plaza_service",
+      "La plaza que intentas actualizar no existe.",
+      404,
+    );
+  }
+
+  return updatedPlaza.rows[0];
+};
+
+// --- ELIMINAR LÓGICAMENTE (Soft Delete) ---
+export const deletePlaza = async (plazaId) => {
+  if (!plazaId) {
+    throw new AppError(
+      "Por favor, proporciona el ID de la plaza eliminar.",
+      400,
+    );
+  }
+
+  const db = Database.getInstance();
+
+  const isConnected = await db.query(
+    `SELECT plazaId 
+     FROM plaza 
+     WHERE (plazaId = $1 AND activo = true AND plazaPadreId IS NOT NULL)
+        OR (plazaPadreId = $1 AND activo = true)
+     LIMIT 1`,
+    [plazaId],
+  );
+
+  if (isConnected.rowCount > 0) {
+    throw new AppError(
+      "departamento_service",
+      "No se puede desactivar esta plaza porque tiene un superior asignado o cuenta con plazas subordinadas activas.",
+      409,
+    );
+  }
+  const deletedPlaza = await db.query(
+    `UPDATE plaza 
+     SET activo = false 
+     WHERE plazaId = $1 
+     RETURNING *`,
+    [plazaId],
+  );
+
+  if (deletedPlaza.rowCount === 0) {
+    throw new AppError("La plaza ya no existe o ya fue eliminada.", 404);
+  }
+
+  return deletedPlaza.rows[0];
+};

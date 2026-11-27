@@ -11,6 +11,12 @@ import plazaRouter from "./modules/plazas/plaza.router.js";
 import empleadoRouter from "./modules/empleados/empleado.router.js";
 import bateriaRouter from "./modules/baterias/bateria.router.js";
 import cursosRouter from "./modules/cursos/curso.router.js";
+import planRouter from "./modules/planCapacitacion/plan.router.js";
+import eventRouter from "./events/events.router.js";
+
+//listeners
+import { registerPlanListeners } from "./events/listeners/plan.listener.js";
+import { loginListener } from "./events/listeners/login.listener.js";
 
 import envVars from "./config/config.dotenv.js";
 
@@ -23,6 +29,7 @@ app.use(morgan("dev"));
 app.use(
   cors({
     origin: envVars.FRONTEND_URL, // La URL exacta de tu frontend en Vite
+    // origin: "http://127.0.0.1:5500", // La URL exacta de tu frontend en Vite
     credentials: true, // Permite el paso de cookies
   }),
 );
@@ -35,7 +42,13 @@ app.use("/api/v1/plazas", plazaRouter);
 app.use("/api/v1/empleados", empleadoRouter);
 app.use("/api/v1/baterias", bateriaRouter);
 app.use("/api/v1/cursos", cursosRouter);
+app.use("/api/v1/planes", planRouter);
+app.use("/api/v1/events", eventRouter);
 
 app.use(globalErrorHandler);
+
+//listeners
+registerPlanListeners();
+loginListener();
 
 export default app;

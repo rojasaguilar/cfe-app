@@ -10,9 +10,7 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        // Llamas al servicio en lugar de usar Axios directamente
         const data = await getMeService();
-        console.log(data);
         setUser(data);
       } catch (error) {
         setUser(null);
@@ -23,6 +21,7 @@ export const AuthProvider = ({ children }) => {
 
     checkAuth();
   }, []);
+  console.log(user);
 
   return (
     <AuthContext.Provider value={{ user, setUser, isLoading }}>

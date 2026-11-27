@@ -12,59 +12,70 @@ import { EmpleadosPage } from "./modules/empleados/pages/EmpleadosPage";
 import { EmpleadoViewPage } from "./modules/empleados/pages/EmpleadoViewPage";
 import { CursosPage } from "./modules/cursos/pages/CursosPage";
 import { BateriasPage } from "./modules/baterias/pages/BateriasPage";
+import { SSEProvider } from "./context/SSEContext";
+import { PlanTab } from "./modules/planCapacitacion/components/PlanTab";
 
 function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Navigate to="/home" replace />} />
+      <SSEProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Navigate to="/home" replace />} />
 
-          {/* Rutas Públicas */}
-          <Route path="/signup" element={<Signup />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/landing" element={<LandingPage />} />
+            {/* Rutas Públicas */}
+            <Route path="/signup" element={<Signup />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/landing" element={<LandingPage />} />
 
-          {/* RUTAS PRIVADAS */}
-          <Route element={<ProtectedRoute />}>
-            {/* LAYOUT: Le quitamos el path="/home". Ahora solo envuelve. */}
-            <Route element={<Layout />}>
-              {/* Todas las rutas aquí adentro tendrán el Sidebar y el Topbar */}
-              <Route
-                path="/home"
-                element={<div>Vista de Inicio (Dashboard)</div>}
-              />
+            {/* RUTAS PRIVADAS */}
+            <Route element={<ProtectedRoute />}>
+              {/* LAYOUT: Le quitamos el path="/home". Ahora solo envuelve. */}
+              <Route element={<Layout />}>
+                {/* Todas las rutas aquí adentro tendrán el Sidebar y el Topbar */}
+                <Route
+                  path="/home"
+                  element={
+                    <div>
+                      Vista de Inicio (Dashboard){" "}
+                      <div>
+                        <PlanTab />
+                      </div>
+                    </div>
+                  }
+                />
 
-              <Route path="/empleados" element={<EmpleadosPage />} />
+                <Route path="/empleados" element={<EmpleadosPage />} />
 
-              <Route
-                path="/empleados/:empleadoid"
-                element={<EmpleadoViewPage />}
-              />
+                <Route
+                  path="/empleados/:empleadoid"
+                  element={<EmpleadoViewPage />}
+                />
 
-              {/* Puedes seguir agregando más rutas que usen el Layout aquí */}
-              <Route path="/organigrama" element={<OrganigramaPage />} />
+                {/* Puedes seguir agregando más rutas que usen el Layout aquí */}
+                <Route path="/organigrama" element={<OrganigramaPage />} />
 
-              <Route path="/puestos" element={<PuestosPage />} />
+                <Route path="/puestos" element={<PuestosPage />} />
 
-              <Route path="/cursos" element={<CursosPage />} />
-              <Route path="/baterias" element={<BateriasPage />} />
+                <Route path="/cursos" element={<CursosPage />} />
+                <Route path="/baterias" element={<BateriasPage />} />
+              </Route>
             </Route>
-          </Route>
 
-          {/* Ruta Catch-all (404) para cualquier URL que no exista */}
-          <Route
-            path="*"
-            element={
-              <div className="flex h-screen items-center justify-center">
-                <h1 className="text-2xl font-bold">
-                  404 - Página no encontrada
-                </h1>
-              </div>
-            }
-          />
-        </Routes>
-      </BrowserRouter>
+            {/* Ruta Catch-all (404) para cualquier URL que no exista */}
+            <Route
+              path="*"
+              element={
+                <div className="flex h-screen items-center justify-center">
+                  <h1 className="text-2xl font-bold">
+                    404 - Página no encontrada
+                  </h1>
+                </div>
+              }
+            />
+          </Routes>
+        </BrowserRouter>
+      </SSEProvider>
     </AuthProvider>
   );
 }

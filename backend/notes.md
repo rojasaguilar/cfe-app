@@ -28,3 +28,7 @@ tengo una pregunta. Haré un sistema en el cual, tendré el registro de los curs
 # hostname podman
 `host.containers.internal`
 
+# Events
+```js
+plan.created
+login

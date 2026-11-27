@@ -1,17 +1,6 @@
 import { useState } from "react";
-import {
-  Divider,
-  Paper,
-  Tab,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Tabs,
-} from "@mui/material";
-import { KardexCard } from "./KardexCard";
+import { Divider, Paper, Tab, Tabs } from "@mui/material";
+// import { KardexCard } from "./KardexCard";
 import KardexTable from "./KardexTable";
 
 const formatDate = (date) => {

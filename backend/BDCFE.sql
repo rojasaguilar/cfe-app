@@ -146,26 +146,116 @@ check (
 );
 
 
-create table planCapacitacion (
- 	planId UUID primary key gen_random_uuid(),
- 	fechaApertura TIMESTAMPTZ not null default NOW(),
- 	fechaCierre TIMESTAMPTZ not null,
-	validoHasta TIMESTAMPTz not null,
-	constraint planes_no_translapados
-		exclude
-			using GIST (
-			tstzrange(fechaApertura, validoHasta, '[)') with &&
-			),
-	constraint fecha_cierre_menor_validez
-		check (fechaCierre < validoHasta),
-	constraint fecha_cierre_menor_apertura
-		check (fechaApertura < fechaCierre)
+CREATE TABLE planCapacitacion (
+    planId UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    fechaApertura TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    fechaCierre TIMESTAMPTZ NULL,
+    validoHasta TIMESTAMPTZ NOT NULL,
+
+    estado VARCHAR(20) NOT NULL DEFAULT 'ABIERTO'
+        CHECK (estado IN ('ABIERTO', 'CERRADO', 'CANCELADO')),
+
+    CONSTRAINT planes_no_translapados
+        EXCLUDE USING GIST (
+            tstzrange(fechaApertura, validoHasta, '[)') WITH &&
+        )
+        WHERE (estado <> 'CANCELADO'),
+
+    CONSTRAINT chk_plan_capacitacion_fechas
+        CHECK (
+            fechaApertura < validoHasta
+            AND (
+                (
+                    estado = 'ABIERTO'
+                    AND fechaCierre IS NULL
+                )
+                OR
+                (
+                    estado = 'CERRADO'
+                    AND fechaCierre IS NOT NULL
+                    AND fechaApertura < fechaCierre
+                    AND fechaCierre <= validoHasta
+                )
+                OR
+                (
+                    estado = 'CANCELADO'
+                    AND fechaCierre IS NOT NULL
+                    AND fechaApertura < fechaCierre
+                )
+            )
+        )
 );
 
-insert into kardex (empleadoId)
-select empleadoId from empleado
+create table aportes_planCapacitacion(
+	aporteId UUID primary key default gen_random_uuid(),
+	planId uuid not null references planCapacitacion(planId),
+	departamentoId uuid not null references departamento(departamentoId),
+	responsableId uuid not null references empleado(empleadoId),
+	fechaCreacion TIMESTAMPTZ not null default NOW(),
+	fechaRevision TIMESTAMPTZ null,
+	fechaEnvio TIMESTAMPTZ null,
+	estado varchar(20) not null default 'BORRADOR'
+		check (estado in('BORRADOR', 'ENVIADA', 'APROBADA', 'RECHAZADA')),
+	motivoRechazo text null,	
+	
+	CONSTRAINT uq_plan_departamento
+    UNIQUE (planId, departamentoId),
+    
+    CONSTRAINT chk_aporte_estado
+CHECK (
+    (
+        estado = 'BORRADOR'
+        AND fechaEnvio IS NULL
+        AND motivoRechazo IS NULL
+    )
+    OR
+    (
+        estado = 'ENVIADA'
+        AND fechaEnvio IS NOT NULL
+        AND motivoRechazo IS NULL
+    )
+    OR
+    (
+        estado = 'APROBADA'
+        AND fechaEnvio IS NOT NULL
+        AND motivoRechazo IS null
+        and fechaRevision is not null
+    )
+    OR
+    (
+        estado = 'RECHAZADA'
+        AND fechaEnvio IS NOT NULL
+        AND motivoRechazo IS NOT NULL
+        AND LENGTH(TRIM(motivoRechazo)) > 0
+          and fechaRevision is not null
+    )
+    
+),  CONSTRAINT chk_aporte_fechas
+CHECK (
+    (fechaEnvio IS NULL OR fechaEnvio >= fechaCreacion)
+    AND
+    (fechaRevision IS NULL OR (
+        fechaEnvio IS NOT NULL
+        AND fechaRevision >= fechaEnvio
+    ))
+)
+);
+
+create table aportacion_cursos_empleados (
+	aporteId UUID not null references aportes_planCapacitacion(aporteId),
+	empleadoId uuid not null references empleado(empleadoId),
+	cursoId uuid not null references curso(cursoId),
+	CONSTRAINT pk_aportacion_cursos_empleados PRIMARY KEY (aporteId, empleadoId, cursoId)
+);
+
+
+
+
 
 ----------------DATA ------------------------------
+insert into kardex (empleadoId)
+select empleadoId from empleado	
 	
 INSERT INTO curso (
   codigoCurso,
