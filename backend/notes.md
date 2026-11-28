@@ -32,3 +32,28 @@ tengo una pregunta. Haré un sistema en el cual, tendré el registro de los curs
 ```js
 plan.created
 login
+
+
+# Plan
+Paso	Frontend						Backend
+1	Definir vigencia y datos generales del programa	
+2	Seleccionar archivo Excel	
+3	Solicitar análisis del archivo				Extraer y validar información
+4	Mostrar resultados del análisis				Comparar claves contra el catálogo de cursos
+5	Completar información faltante o dejarla pendiente	
+6	Revisar resumen de importación	
+7	Confirmar creación del programa y su oferta		Validar nuevamente y persistir mediante una transacción
+8	Mostrar resultado de la operación	
+9. 								Notificar jefes de departamento/administradores
+Aportar 
+
+1. seleccionar plan
+2. Click generar aportacion 
+	2.1 Crear AportesPlan (planId, departamentoId, responsableId, now(), 'BORRADOR')
+3. Seleccionar empleados y cursos
+4. Botón guradar cambios
+	4.1 Insertar cursos_empleados_aportacion (aporteId, empleadoId, cursoId)
+5. Enviar aporte
+	5.1 Insertar pendientes cursos_empleados_aportacion (aporteId, empleadoId, cursoId)
+	5.2 Update AportesPlan (planId, fechaEnvio, 'ENVIADA')
+6. Desactivar boton agregar empleados
