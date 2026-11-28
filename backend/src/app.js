@@ -13,10 +13,12 @@ import bateriaRouter from "./modules/baterias/bateria.router.js";
 import cursosRouter from "./modules/cursos/curso.router.js";
 import planRouter from "./modules/planCapacitacion/plan.router.js";
 import eventRouter from "./events/events.router.js";
+import necesidadRouter from "./modules/necesidad/necesidad.router.js";
 
 //listeners
 import { registerPlanListeners } from "./events/listeners/plan.listener.js";
 import { loginListener } from "./events/listeners/login.listener.js";
+import { NecesidadListeners } from "./events/listeners/necesidad.listener.js";
 
 import envVars from "./config/config.dotenv.js";
 
@@ -44,11 +46,13 @@ app.use("/api/v1/baterias", bateriaRouter);
 app.use("/api/v1/cursos", cursosRouter);
 app.use("/api/v1/planes", planRouter);
 app.use("/api/v1/events", eventRouter);
+app.use("/api/v1/necesidades", necesidadRouter);
 
 app.use(globalErrorHandler);
 
 //listeners
 registerPlanListeners();
 loginListener();
+NecesidadListeners();
 
 export default app;

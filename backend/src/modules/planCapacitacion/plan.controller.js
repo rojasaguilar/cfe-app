@@ -35,15 +35,15 @@ export const getPlaza = catchAsync(async (req, res, next) => {
 });
 
 // --- OBTENER TODOS ---
-export const getAllPlazas = catchAsync(async (req, res, next) => {
+export const getAllPlanes = catchAsync(async (req, res, next) => {
   const params = req.query;
 
-  const puestos = await planService.getAllPuestos(params);
+  const planes = await planService.getAllPlanes(params);
 
   res.status(200).json({
     success: true,
-    results: puestos.length,
-    data: puestos,
+    results: planes.length,
+    data: planes,
   });
 });
 

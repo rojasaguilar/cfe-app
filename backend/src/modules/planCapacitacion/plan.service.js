@@ -44,15 +44,20 @@ export const getPlaza = async (plazaId) => {
   return plaza.rows[0];
 };
 
-export const getAllPlazas = async (params = {}) => {
+export const getAllPlanes = async (params = {}) => {
   const db = Database.getInstance();
 
-  let baseQuery = "SELECT * FROM plaza";
+  let baseQuery = "SELECT * FROM planCapacitacion";
   const conditions = [];
   const values = [];
   let paramCounter = 1;
 
-  const camposPermitidos = ["noPlaza", "puestoId", "activo", "departamentoId"];
+  const camposPermitidos = [
+    "fechaApertura",
+    "fechaCierre",
+    "validoHasta",
+    "estado",
+  ];
 
   // 3. Construcción dinámica de filtros
   for (const [key, value] of Object.entries(params)) {
@@ -73,12 +78,12 @@ export const getAllPlazas = async (params = {}) => {
     baseQuery += " WHERE " + conditions.join(" AND ");
   }
 
-  baseQuery += " ORDER BY nombre ASC";
+  // baseQuery += " ORDER BY nombre ASC";
 
   // 5. Ejecutar la consulta pasando el arreglo de valores de forma segura
-  const plazas = await db.query(baseQuery, values);
+  const planes = await db.query(baseQuery, values);
 
-  return plazas.rows;
+  return planes.rows;
 };
 
 // --- ACTUALIZAR (Update) ---

@@ -49,7 +49,7 @@ export const getAllEmpleados = async (params = {}) => {
   const values = [];
   let paramCounter = 1;
 
-  const camposPermitidos = ["nombrePuesto", "empleadoId", "activo"];
+  const camposPermitidos = ["nombres", "apellidos", "nombrePuesto", "empleadoId", "activo"];
 
   // 3. Construcción dinámica de filtros
   for (const [key, value] of Object.entries(params)) {

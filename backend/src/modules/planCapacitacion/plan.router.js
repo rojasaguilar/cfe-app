@@ -10,7 +10,10 @@ router.use(protect);
 
 router
   .route("/")
-  // .get(restrictTo("administrador"), planController.getAllPlazas)
+  .get(
+    restrictTo("administrador", "jefe-departamento"),
+    planController.getAllPlanes,
+  )
   .post(
     restrictTo("administrador"),
     validate(createPlanSchema),

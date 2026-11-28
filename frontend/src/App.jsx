@@ -14,6 +14,7 @@ import { CursosPage } from "./modules/cursos/pages/CursosPage";
 import { BateriasPage } from "./modules/baterias/pages/BateriasPage";
 import { SSEProvider } from "./context/SSEContext";
 import { PlanTab } from "./modules/planCapacitacion/components/PlanTab";
+import { PlanesCapacitacionPage } from "./modules/planCapacitacion/pages/PlanesCapacitacionPage";
 
 function App() {
   return (
@@ -59,6 +60,10 @@ function App() {
 
                 <Route path="/cursos" element={<CursosPage />} />
                 <Route path="/baterias" element={<BateriasPage />} />
+                <Route
+                  path="/planes-capacitacion"
+                  element={<PlanesCapacitacionPage />}
+                />
               </Route>
             </Route>
 

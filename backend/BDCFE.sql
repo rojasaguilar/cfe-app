@@ -5,6 +5,8 @@ create table departamento (
 	activo boolean default true
 );
 
+
+
 create table PUESTO (
 	puestoId UUID primary key default gen_random_uuid(),
 	nombrePuesto varchar(50) not null,
@@ -39,15 +41,22 @@ create table empleado (
 	
 	constraint chk_empleado_rtt_rpe
 check(
-		(rpe is NULL)
+		(rpe is null)
 		<>
 		(rtt is null)
 	 )	
 );
 
-CREATE UNIQUE INDEX uq_empleado_nombre_normalizado
-ON empleado (LOWER(TRIM(nombres)), LOWER(TRIM(apellidos)));
+create unique index uq_empleado_nombre_normalizado
+on
+empleado (LOWER(TRIM(nombres)),
+LOWER(TRIM(apellidos)));
 
+alter table departamento 
+add column responsableId uuid not null DEFAULT '1a2b2606-6e8e-4b14-881d-9186dc316765' references empleado(empleadoId);
+
+ALTER TABLE departamento
+ALTER COLUMN responsableId DROP DEFAULT;
 
 create table cuenta_usuario (
     usuarioId UUID primary key default gen_random_uuid(),
@@ -61,15 +70,14 @@ create table cuenta_usuario (
 	activo boolean default true	
 );
 
-CREATE TABLE bateria (
-  bateriaId UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  puestoId UUID NOT NULL REFERENCES puesto(puestoId),
-  departamentoId UUID NOT NULL REFERENCES departamento(departamentoId),
+create table bateria (
+  bateriaId UUID primary key default gen_random_uuid(),
+  puestoId UUID not null references puesto(puestoId),
+  departamentoId UUID not null references departamento(departamentoId),
 --  puestoSuperiorId UUID REFERENCES puesto(puestoId) ON DELETE SET NULL, DELETED INCONSISTENCY WITH PLAZA-PUESTO-PUESTOSUPERIOR
-  activo BOOLEAN NOT NULL DEFAULT true,
-
-  -- Garantiza que no haya dos baterías con el mismo puesto y departamento
-  CONSTRAINT uq_bateria_puesto_departamento UNIQUE (puestoId, departamentoId)
+activo BOOLEAN not null default true,
+-- Garantiza que no haya dos baterías con el mismo puesto y departamento
+  constraint uq_bateria_puesto_departamento unique (puestoId, departamentoId)
 );
 
 create table curso (
@@ -78,12 +86,14 @@ create table curso (
  nombre varchar(200) not null,
  horasPracticas smallint not null,
  horasTeoria smallint not null,
- generaDC3 boolean not null,	
+ generaDC3 boolean not null,
 -- presencial boolean not null default false,
 -- virtual boolean not null default false,
- tipoCurso varchar(30) not null check(tipoCurso in ('ADMINISTRATIVO', 'ESPECIALIZADO', 'TECNICO', 'SIMULADOR')),
+tipoCurso varchar(30) not null check(tipoCurso in ('ADMINISTRATIVO', 'ESPECIALIZADO', 'TECNICO', 'SIMULADOR', 'PENDIENTE')),
  activo BOOLEAN not null default true
 );
+
+alter table CURSO add constraint curso_tipocurso_check check(tipoCurso in ('ADMINISTRATIVO', 'ESPECIALIZADO', 'TECNICO', 'SIMULADOR', 'PENDIENTE'))
 
 create table especialidad (
 	especialidadId UUID primary key default gen_random_uuid(),
@@ -95,16 +105,15 @@ create table cursoEspecialidad (
 	especialidadId UUID not null references especialidad (especialidadId),
 	cursoId UUID not null references curso (cursoId),
 	
-	CONSTRAINT pk_curso_especialidad PRIMARY KEY (especialidadId, cursoId)
+	constraint pk_curso_especialidad primary key (especialidadId, cursoId)
 );
 
-CREATE TABLE curso_bateria (
-  bateriaId UUID NOT NULL REFERENCES bateria(bateriaId),
-  cursoId UUID NOT NULL REFERENCES curso(cursoId),
+create table curso_bateria (
+  bateriaId UUID not null references bateria(bateriaId),
+  cursoId UUID not null references curso(cursoId),
 
-  CONSTRAINT pk_curso_bateria PRIMARY KEY (bateriaId, cursoId)
+  constraint pk_curso_bateria primary key (bateriaId, cursoId)
 );
-
 --create table kardex (
 --	kardexId UUID primary key not null default gen_random_uuid(),
 --	empleadoId uuid not null references empleado (empleadoId)
@@ -114,12 +123,13 @@ create table kardex(
 	kardexId UUID primary key not null default gen_random_uuid(),
 	empleadoId uuid not null references empleado (empleadoId),
 --	kardexId uuid not null references kardex (kardexId),
-	cursoId uuid not null references curso (cursoId),
+cursoId uuid not null references curso (cursoId),
 	fechaInicioCurso DATE not null ,
 	estadoCurso varchar(30) not null check(estadoCurso in ('INSCRITO', 'CURSANDO', 'APROBADO', 'REPROBADO', 'CURSADO_SIN_CALIFICACION')),
 	tipoProgramacion varchar(1) not null check(tipoProgramacion in('D', 'F')),
 	fechaTerminoCurso DATE,
 	modalidad varchar(40) check(modalidad in('PRESENCIAL', 'DISTANCIA (S)', 'DISTANCIA (A)', 'VIDEOCONFERENCIA (S)', 'B-LEARNING (S)', 'SITIO')),
+	ubicacion varchar(60),
 	calificacion smallint,
 	urlDC3 text,
 	fechaSubidaDC3 timestamptz,
@@ -145,43 +155,44 @@ check (
 	  )
 );
 
+create table planCapacitacion (
+    planId UUID primary key default gen_random_uuid(),
 
-CREATE TABLE planCapacitacion (
-    planId UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    fechaApertura TIMESTAMPTZ not null default NOW(),
+    fechaCierre TIMESTAMPTZ null,
+    validoHasta TIMESTAMPTZ not null,
 
-    fechaApertura TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    fechaCierre TIMESTAMPTZ NULL,
-    validoHasta TIMESTAMPTZ NOT NULL,
+    estado VARCHAR(20) not null default 'ABIERTO'
+        check (estado in ('ABIERTO', 'CERRADO', 'CANCELADO')),
 
-    estado VARCHAR(20) NOT NULL DEFAULT 'ABIERTO'
-        CHECK (estado IN ('ABIERTO', 'CERRADO', 'CANCELADO')),
-
-    CONSTRAINT planes_no_translapados
-        EXCLUDE USING GIST (
-            tstzrange(fechaApertura, validoHasta, '[)') WITH &&
+    constraint planes_no_translapados
+        exclude
+	using GIST (
+            tstzrange(fechaApertura, validoHasta, '[)') with &&
         )
-        WHERE (estado <> 'CANCELADO'),
+where
+(estado <> 'CANCELADO'),
 
-    CONSTRAINT chk_plan_capacitacion_fechas
-        CHECK (
+    constraint chk_plan_capacitacion_fechas
+        check (
             fechaApertura < validoHasta
-            AND (
+	and (
                 (
                     estado = 'ABIERTO'
-                    AND fechaCierre IS NULL
+		and fechaCierre is null
                 )
-                OR
+	or
                 (
                     estado = 'CERRADO'
-                    AND fechaCierre IS NOT NULL
-                    AND fechaApertura < fechaCierre
-                    AND fechaCierre <= validoHasta
+		and fechaCierre is not null
+		and fechaApertura < fechaCierre
+		and fechaCierre <= validoHasta
                 )
-                OR
+	or
                 (
                     estado = 'CANCELADO'
-                    AND fechaCierre IS NOT NULL
-                    AND fechaApertura < fechaCierre
+		and fechaCierre is not null
+		and fechaApertura < fechaCierre
                 )
             )
         )
@@ -199,45 +210,45 @@ create table aportes_planCapacitacion(
 		check (estado in('BORRADOR', 'ENVIADA', 'APROBADA', 'RECHAZADA')),
 	motivoRechazo text null,	
 	
-	CONSTRAINT uq_plan_departamento
-    UNIQUE (planId, departamentoId),
+	constraint uq_plan_departamento
+    unique (planId, departamentoId),
     
-    CONSTRAINT chk_aporte_estado
-CHECK (
+    constraint chk_aporte_estado
+check (
     (
         estado = 'BORRADOR'
-        AND fechaEnvio IS NULL
-        AND motivoRechazo IS NULL
+        and fechaEnvio is null
+        and motivoRechazo is null
     )
-    OR
+    or
     (
         estado = 'ENVIADA'
-        AND fechaEnvio IS NOT NULL
-        AND motivoRechazo IS NULL
+        and fechaEnvio is not null
+        and motivoRechazo is null
     )
-    OR
+    or
     (
         estado = 'APROBADA'
-        AND fechaEnvio IS NOT NULL
-        AND motivoRechazo IS null
+        and fechaEnvio is not null
+        and motivoRechazo is null
         and fechaRevision is not null
     )
-    OR
+    or
     (
         estado = 'RECHAZADA'
-        AND fechaEnvio IS NOT NULL
-        AND motivoRechazo IS NOT NULL
-        AND LENGTH(TRIM(motivoRechazo)) > 0
+        and fechaEnvio is not null
+        and motivoRechazo is not null
+        and LENGTH(TRIM(motivoRechazo)) > 0
           and fechaRevision is not null
     )
     
-),  CONSTRAINT chk_aporte_fechas
-CHECK (
-    (fechaEnvio IS NULL OR fechaEnvio >= fechaCreacion)
-    AND
-    (fechaRevision IS NULL OR (
-        fechaEnvio IS NOT NULL
-        AND fechaRevision >= fechaEnvio
+), constraint chk_aporte_fechas
+check (
+    (fechaEnvio is null or fechaEnvio >= fechaCreacion)
+    and
+    (fechaRevision is null or (
+        fechaEnvio is not null
+        and fechaRevision >= fechaEnvio
     ))
 )
 );
@@ -246,1683 +257,144 @@ create table aportacion_cursos_empleados (
 	aporteId UUID not null references aportes_planCapacitacion(aporteId),
 	empleadoId uuid not null references empleado(empleadoId),
 	cursoId uuid not null references curso(cursoId),
-	CONSTRAINT pk_aportacion_cursos_empleados PRIMARY KEY (aporteId, empleadoId, cursoId)
+	constraint pk_aportacion_cursos_empleados primary key (aporteId, empleadoId, cursoId)
 );
 
+CREATE TABLE necesidad (
+    necesidadId UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
+    propuestaPor UUID NOT NULL
+        REFERENCES empleado(empleadoId),
 
+    departamentoId UUID NOT NULL
+        REFERENCES departamento(departamentoId),
 
+    tema TEXT NOT NULL,
 
-----------------DATA ------------------------------
-insert into kardex (empleadoId)
-select empleadoId from empleado	
-	
-INSERT INTO curso (
-  codigoCurso,
-  nombre,
-  horasPracticas,
-  horasTeoria,
-  generaDC3,
-  activo
-)
-VALUES
-  (
-    'CFE-SEG-001',
-    'Seguridad e higiene en subestaciones eléctricas',
-    16,
-    8,
-    true,
-    true
-  ),
-  (
-    'CFE-MAT-004',
-    'Mantenimiento preventivo de transformadores de potencia',
-    20,
-    12,
-    true,
-    true
-  ),
-  (
-    'CFE-CAP-012',
-    'Procedimientos de consignación y libranza en líneas de transmisión',
-    12,
-    8,
-    true,
-    true
-  ),
-  (
-    'CFE-NOR-008',
-    'Normatividad técnica y operación del sistema eléctrico nacional',
-    0,
-    16,
-    false,
-    true
-  );
+    fechaPropuesta TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    fechaEnvio TIMESTAMPTZ,
+    fechaResolucion TIMESTAMPTZ,
 
-INSERT INTO especialidad (codigoEspecialidad, nombreEspecialidad)
-VALUES
-    ('ADM', 'ADMINISTRACIÓN'),
-    ('CAP', 'CAPACITACIÓN A DISTANCIA'),
-    ('OBR', 'OBRA PÚBLICA'),
-    ('DIST', 'DISTRIBUCIÓN - PROYECTO DE ACTUALIZACIÓN'),
-    ('DISI', 'DISTRIBUCIÓN/ISC'),
-    ('ISC', 'INGENIERÍA DE SERVICIO AL CLIENTE'),
-    ('AMB', 'AMBIENTAL'),
-    ('ELE', 'ELÉCTRICA'),
-    ('INS', 'INSTRUMENTACIÓN'),
-    ('MEC', 'MECÁNICA'),
-    ('OPE', 'OPERACIÓN'),
-    ('QUI', 'QUÍMICA'),
-    ('SEG', 'SEGURIDAD E HIGIENE INDUSTRIAL'),
-    ('DGN', 'DISEÑO'),
-    ('INF', 'INFORMÁTICA'),
-    ('PROG', 'PROGRAMACIÓN'),
-    ('RED', 'REDES Y COMUNICACIONES'),
-    ('SO', 'SISTEMAS OPERATIVOS'),
-    ('CIV', 'CIVIL'),
-    ('COM', 'COMUNICACIONES'),
-    ('CTR', 'CONTROL'),
-    ('LTR', 'LÍNEAS DE TRANSMISIÓN'),
-    ('PRE', 'PROTECCIONES ELÉCTRICAS'),
-    ('SUB', 'SUBESTACIONES');
+    resueltaPor UUID REFERENCES empleado(empleadoId),
 
-INSERT INTO empleado (
-    rpe,
-    nombres,
-    apellidos,
-    rfc,
-    curp,
-    plazaid,
-    activo,
-    fechanacimiento,
-    estadocivil,
-    domicilio,
-    telefono,
-    correo,
-    fotourl
-) VALUES
-('9JLU1', 'GABRIELA', 'DESSAVRE RICO', 'DERG810704A12', 'DERG810704MNTSCB09', NULL, true, '1981-07-04', 'CASADO', 'Av. Insurgentes 101, Col. Centro, Tepic, Nay.', '3111000001', 'gabriela.dessavre@empresa.mx', NULL),
-('9JLHG', 'ARMANDO', 'CRUZ CAMBRON', 'CUCA860102B34', 'CUCA860102HMCRMR02', NULL, true, '1986-01-02', 'SOLTERO', 'Calle Morelos 202, Col. San Juan, Tepic, Nay.', '3111000002', 'armando.cruz@empresa.mx', NULL),
-('9JLJX', 'NANCY MINELLI', 'MARTINEZ MORAN', 'MAMN820720C56', 'MAMN820720MNTRRN04', NULL, true, '1982-07-20', 'CASADO', 'Calle Hidalgo 303, Col. Mololoa, Tepic, Nay.', '3111000003', 'nancy.martinez@empresa.mx', NULL),
-('G184T', 'CRISTIAN MISAEL', 'REYES OCHOA', 'REOC970409D78', 'REOC970409HJCYCR08', NULL, true, '1997-04-09', 'SOLTERO', 'Av. México 404, Col. Valle de Matatipac, Tepic, Nay.', '3111000004', 'cristian.reyes@empresa.mx', NULL),
-('G325T', 'JUAN VALENTE', 'LEON ALVAREZ', 'LEAJ960521E90', 'LEAJ960521HNTNLN06', NULL, true, '1996-05-21', 'SOLTERO', 'Calle Juárez 505, Col. Lázaro Cárdenas, Tepic, Nay.', '3111000005', 'juan.leon@empresa.mx', NULL),
-('9JLVX', 'MAURICIO', 'PEREZ MEDELLIN', 'PEMM890806F11', 'PEMM890806HTLRDR03', NULL, true, '1989-08-06', 'CASADO', 'Blvd. Tepic-Xalisco 606, Col. Caja de Agua, Tepic, Nay.', '3111000006', 'mauricio.perez@empresa.mx', NULL),
-('9JLJ7', 'GERMAN', 'OCHOA VILLARREAL', 'OOVG870526G22', 'OOVG870526HNTCLR06', NULL, true, '1987-05-26', 'CASADO', 'Calle Allende 707, Col. Centro, Tepic, Nay.', '3111000007', 'german.ochoa@empresa.mx', NULL),
-('9AVV9', 'HORACIO', 'BARAJAS GARCIA', 'BAGH810310H33', 'BAGH810310HNTRRR00', NULL, true, '1981-03-10', 'CASADO', 'Av. Jacarandas 808, Col. San Juan, Tepic, Nay.', '3111000008', 'horacio.barajas@empresa.mx', NULL),
-('9JLVW', 'GABRIELA MARIA', 'ESTRADA CASTREJON', 'EACG801101I44', 'EACG801101MNTSSB01', NULL, true, '1980-11-01', 'DIVORCIADO', 'Calle Bravo 909, Col. Los Fresnos, Tepic, Nay.', '3111000009', 'gabriela.estrada@empresa.mx', NULL),
-('9NM53', 'MARCO ANTONIO', 'RIVERA DE SANTIAGO', 'RISM951020J55', 'RISM951020HNTVNR00', NULL, true, '1995-10-20', 'SOLTERO', 'Calle Durango 110, Col. Centro, Tepic, Nay.', '3111000010', 'marco.rivera@empresa.mx', NULL),
-('9NM4T', 'ALAN EMMANUEL', 'LEON MACHAIN', 'LEMA941102K66', 'LEMA941102HNTNCL00', NULL, true, '1994-11-02', 'SOLTERO', 'Av. Aguamilpa 111, Col. Ciudad Industrial, Tepic, Nay.', '3111000011', 'alan.leon@empresa.mx', NULL),
-('9JJBW', 'BERENICE', 'LORETO OCHOA', 'LOOB801029L77', 'LOOB801029MNTRCR08', NULL, true, '1980-10-29', 'CASADO', 'Calle Veracruz 112, Col. San Antonio, Tepic, Nay.', '3111000012', 'berenice.loreto@empresa.mx', NULL),
-('9AW1B', 'JOSE OCTAVIO', 'GOMEZ MARTINEZ', 'GOMO760412M88', 'GOMO760412HNTMRC07', NULL, true, '1976-04-12', 'CASADO', 'Calle Puebla 113, Col. Menchaca, Tepic, Nay.', '3111000013', 'jose.gomez@empresa.mx', NULL),
-('9AVY1', 'MARIA GUADALUPE', 'REYNOSO MONTEON', 'REMG651212N99', 'REMG651212MJCYND08', NULL, true, '1965-12-12', 'VIUDO', 'Calle Zapata 114, Col. El Rodeo, Tepic, Nay.', '3111000014', 'maria.reynoso@empresa.mx', NULL),
-('G332T', 'MARIBEL', 'FLORES ROBLES', 'FORM920511P10', 'FORM920511MNTLBR01', NULL, true, '1992-05-11', 'SOLTERO', 'Av. Victoria 115, Col. Morelos, Tepic, Nay.', '3111000015', 'maribel.flores@empresa.mx', NULL),
-('G335T', 'DEIRY MICHEL', 'RODRIGUEZ SILVA', 'ROSD990617Q21', 'ROSD990617MNTDLR00', NULL, true, '1999-06-17', 'SOLTERO', 'Calle Lerdo 116, Col. Centro, Tepic, Nay.', '3111000016', 'deiry.rodriguez@empresa.mx', NULL),
-('G319T', 'KATIA LIZBETH', 'CARRILLO CERVANTES', 'CACK950819R32', 'CACK950819MNTRRT03', NULL, true, '1995-08-19', 'SOLTERO', 'Calle Mina 117, Col. Acayapan, Tepic, Nay.', '3111000017', 'katia.carrillo@empresa.mx', NULL),
-('9JLK5', 'MARCOS FRANCISCO', 'SALAS RENTERIA', 'SARM860715S43', 'SARM860715HNTLNR00', NULL, true, '1986-07-15', 'CASADO', 'Calle Zaragoza 118, Col. Hermosa Provincia, Tepic, Nay.', '3111000018', 'marcos.salas@empresa.mx', NULL),
-('9NM32', 'JESSY MALINALY', 'SANDOVAL VAZQUEZ', 'SAVJ891225T54', 'SAVJ891225MNTNZS00', NULL, true, '1989-12-25', 'CASADO', 'Av. Tecnológico 119, Col. Lagos del Country, Tepic, Nay.', '3111000019', 'jessy.sandoval@empresa.mx', NULL),
-('9AVYK', 'VICTOR HUGO', 'AHUMADA GONZALEZ', 'AUGV720619U65', 'AUGV720619HNTHNC06', NULL, true, '1972-06-19', 'CASADO', 'Calle Abasolo 120, Col. San José, Tepic, Nay.', '3111000020', 'victor.ahumada@empresa.mx', NULL),
-('9AW1K', 'AMERICO GUILLERMO', 'SANDOVAL HERRERA', 'SAHA810830V76', 'SAHA810830HNTNRM03', NULL, true, '1981-08-30', 'CASADO', 'Calle Miñón 121, Col. Centro, Tepic, Nay.', '3111000021', 'americo.sandoval@empresa.mx', NULL),
-('9NM77', 'CARLOS MANUEL', 'MORA SILVA', 'MOSC980326W87', 'MOSC980326HNTRLR03', NULL, true, '1998-03-26', 'SOLTERO', 'Calle Ures 122, Col. Mololoa, Tepic, Nay.', '3111000022', 'carlos.mora@empresa.mx', NULL),
-('9JLKM', 'LUIS ALBERTO', 'RUBIO OCHOA', 'RUOL861025X98', 'RUOL861025HJCBCS06', NULL, true, '1986-10-25', 'CASADO', 'Av. Proyecto 123, Col. Lindavista, Tepic, Nay.', '3111000023', 'luis.rubio@empresa.mx', NULL),
-('9AVRH', 'RAFAEL', 'ESPINOSA CURIEL', 'EICR780305Y19', 'EICR780305HNTSRF01', NULL, true, '1978-03-05', 'CASADO', 'Calle León 124, Col. Centro, Tepic, Nay.', '3111000024', 'rafael.espinosa@empresa.mx', NULL),
-('9AW20', 'SERGIO ALONSO', 'NAVA GUZMAN', 'NAGS780309Z20', 'NAGS780309HNTVZR04', NULL, true, '1978-03-09', 'DIVORCIADO', 'Calle Querétaro 125, Col. San Juan, Tepic, Nay.', '3111000025', 'sergio.nava@empresa.mx', NULL),
-('9JLVL', 'KAREN MONTSERRAT', 'ALMENDARIZ ZAVALA', 'AEZK851202A31', 'AEZK851202MNTLVR03', NULL, true, '1985-12-02', 'CASADO', 'Calle Oaxaca 126, Col. Fovissste, Tepic, Nay.', '3111000026', 'karen.almendariz@empresa.mx', NULL),
-('9JLRJ', 'LOURDES', 'PARTIDA HERNANDEZ', 'PAHL851122B42', 'PAHL851122MNTRRR04', NULL, true, '1985-11-22', 'CASADO', 'Calle Nayarit 127, Col. Loma Hermosa, Tepic, Nay.', '3111000027', 'lourdes.partida@empresa.mx', NULL),
-('9AW1Y', 'MARCOS ENRIQUE', 'NIEVES RUBIO', 'NIRM770123C53', 'NIRM770123HNTVBR00', NULL, true, '1977-01-23', 'CASADO', 'Av. Allende 128, Col. Centro, Tepic, Nay.', '3111000028', 'marcos.nieves@empresa.mx', NULL),
-('9NM76', 'LESLIE ANAHI', 'NUNEZ MORAN', 'NUML961203D64', 'NUML961203MNTXRS01', NULL, true, '1996-12-03', 'SOLTERO', 'Calle Colima 129, Col. Lázaro Cárdenas, Tepic, Nay.', '3111000029', 'leslie.nunez@empresa.mx', NULL),
-('9JLXM', 'NORMA ALEJANDRA', 'NIEVES AHUMADA', 'NIAN920125E75', 'NIAN920125MNTVHR08', NULL, true, '1992-01-25', 'SOLTERO', 'Calle Jalisco 130, Col. Santa Teresita, Tepic, Nay.', '3111000030', 'norma.nieves@empresa.mx', NULL),
-('9JLY6', 'CESAR GABRIEL', 'GUEVARA GALDAMES', 'GUGC880322F86', 'GUGC880322HDFVLS04', NULL, true, '1988-03-22', 'CASADO', 'Calle Sinaloa 131, Col. Los Sauces, Tepic, Nay.', '3111000031', 'cesar.guevara@empresa.mx', NULL),
-('9JM08', 'ALICIA', 'AGUIRRE PARTIDA', 'AUPA940320G97', 'AUPA940320MNTGRL04', NULL, true, '1994-03-20', 'SOLTERO', 'Calle Sonora 132, Col. Ruíz Cortines, Tepic, Nay.', '3111000032', 'alicia.aguirre@empresa.mx', NULL),
-('9JLW9', 'RODRIGO', 'SOTO MARTINEZ', 'SOMR741017H18', 'SOMR741017HNTTRD08', NULL, true, '1974-10-17', 'CASADO', 'Av. P. Sánchez 133, Col. Centro, Tepic, Nay.', '3111000033', 'rodrigo.soto@empresa.mx', NULL),
-('G273T', 'GABRIEL', 'BARRON CRESPO', 'BACG941207J30', 'BACG941207HNTRRB03', NULL, true, '1994-12-07', 'SOLTERO', 'Calle Chiapas 135, Col. Morelos, Tepic, Nay.', '3111000035', 'gabriel.barron@empresa.mx', NULL),
-('G274T', 'MIGUEL ANGEL', 'RUBIO AGUILAR', 'RUAM920826K41', 'RUAM920826HNTBGG01', NULL, true, '1992-08-26', 'SOLTERO', 'Calle Tabasco 136, Col. El Mirador, Tepic, Nay.', '3111000036', 'miguel.rubio@empresa.mx', NULL),
-('G323T', 'EDUARDO ENRIQUE', 'CABRERA SORIA', 'CASE871217L52', 'CASE871217HNTBRD07', NULL, true, '1987-12-17', 'CASADO', 'Calle Campeche 137, Col. San Juan, Tepic, Nay.', '3111000037', 'eduardo.cabrera@empresa.mx', NULL),
-('9NM63', 'FRANCISCO MAXIMILIANO', 'TAPIA VAZQUEZ', 'TAVF961228M63', 'TAVF961228HNTPZR08', NULL, true, '1996-12-28', 'SOLTERO', 'Calle Yucatán 138, Col. Valle Verde, Tepic, Nay.', '3111000038', 'francisco.tapia@empresa.mx', NULL),
-('9M2M9', 'JULIO CESAR', 'MORENO CHIJATE', 'MOCJ790306N74', 'MOCJ790306HNTRHL02', NULL, true, '1979-03-06', 'CASADO', 'Calle Michoacán 139, Col. Burócrata, Tepic, Nay.', '3111000039', 'julio.moreno@empresa.mx', NULL),
-('9JLXH', 'JOSE DE JESUS', 'CAMACHO RIVAS', 'CARJ860115P85', 'CARJ860115HNTMVS03', NULL, true, '1986-01-15', 'CASADO', 'Calle Zacatecas 140, Col. Centro, Tepic, Nay.', '3111000040', 'jose.camacho@empresa.mx', NULL),
-('9AVJG', 'ALONSO REY', 'SOLIS RAMOS', 'SORA710106Q96', 'SORA710106HVZLML07', NULL, true, '1971-01-06', 'CASADO', 'Calle Chihuahua 141, Col. Las Brisas, Tepic, Nay.', '3111000041', 'alonso.solis@empresa.mx', NULL),
-('9B68N', 'FAVIAN', 'FLORES RODRIGUEZ', 'FORF770102R17', 'FORF770102HJCLDV00', NULL, true, '1977-01-02', 'DIVORCIADO', 'Calle Coahuila 142, Col. Reforma, Tepic, Nay.', '3111000042', 'favian.flores@empresa.mx', NULL),
-('9NM4U', 'NOHEL', 'MEDINA JUAREZ', 'MEJN950305S28', 'MEJN950305HNTDRH03', NULL, true, '1995-03-05', 'SOLTERO', 'Calle Tamaulipas 143, Col. Tierra y Libertad, Tepic, Nay.', '3111000043', 'nohel.medina@empresa.mx', NULL),
-('9NM2G', 'VICTOR MANUEL', 'HERNANDEZ NUÑEZ', 'HENV900816T39', 'HENV900816HNTRXC01', NULL, true, '1990-08-16', 'CASADO', 'Calle Nuevo León 144, Col. Emiliano Zapata, Tepic, Nay.', '3111000044', 'victor.hernandez@empresa.mx', NULL),
-('9AVU4', 'JUAN MANUEL', 'VELAZQUEZ ANGUIANO', 'VEAJ800720U40', 'VEAJ800720HJCLNN05', NULL, true, '1980-07-20', 'CASADO', 'Calle Guanajuato 145, Col. San Antonio, Tepic, Nay.', '3111000045', 'juan.velazquez@empresa.mx', NULL),
-('9JLRH', 'JORGE HUMBERTO', 'NAVA BOGARIN', 'NABJ861002V51', 'NABJ861002HNTVGR00', NULL, true, '1986-10-02', 'CASADO', 'Calle Hidalgo 146, Col. Centro, Tepic, Nay.', '3111000046', 'jorge.nava@empresa.mx', NULL),
-('G181T', 'NORA ISABEL', 'CORTES RODRIGUEZ', 'CORN930314W62', 'CORN930314MNTRDR09', NULL, true, '1993-03-14', 'SOLTERO', 'Calle Aguascalientes 147, Col. San Juan, Tepic, Nay.', '3111000047', 'nora.cortes@empresa.mx', NULL),
-('9JJKT', 'LUIS ARTURO', 'TAPIA ELIAS', 'TAEL770201Y84', 'TAEL770201HNTPLS03', NULL, true, '1977-02-01', 'CASADO', 'Calle Tlaxcala 149, Col. Los Fresnos, Tepic, Nay.', '3111000049', 'luis.tapia@empresa.mx', NULL),
-('9JM1K', 'SANDRA LUZ', 'TAFOYA LOPEZ', 'TALS750601Z95', 'TALS750601MNTFPN06', NULL, true, '1975-06-01', 'CASADO', 'Calle Querétaro 150, Col. Centro, Tepic, Nay.', '3111000050', 'sandra.tafoya@empresa.mx', NULL),
-('9AVWG', 'SABINO', 'MAYORQUIN LOPEZ', 'MALS750209A16', 'MALS750209HNTYPB08', NULL, true, '1975-02-09', 'CASADO', 'Calle Baja California 151, Col. Amado Nervo, Tepic, Nay.', '3111000051', 'sabino.mayorquin@empresa.mx', NULL),
-('9JLY9', 'JOSE RODOLFO', 'BARBA PULIDO', 'BAPR921207C38', 'BAPR921207HNTRLD07', NULL, true, '1992-12-07', 'SOLTERO', 'Calle Independencia 153, Col. Morelos, Tepic, Nay.', '3111000053', 'jose.barba@empresa.mx', NULL),
-('9BBXN', 'JUAN RAUL', 'GOMEZ DOMINGUEZ', 'GODJ740905D49', 'GODJ740905HJCMMN02', NULL, true, '1974-09-05', 'CASADO', 'Calle Reforma 154, Col. El Rodeo, Tepic, Nay.', '3111000054', 'juan.gomez@empresa.mx', NULL),
-('9AVTK', 'FRANCISCO JAVIER', 'MORENO CHIJATE', 'MOCF741112E50', 'MOCF741112HDFRHR02', NULL, true, '1974-11-12', 'CASADO', 'Calle 5 de Mayo 155, Col. Centro, Tepic, Nay.', '3111000055', 'francisco.moreno@empresa.mx', NULL),
-('9JJ5V', 'ELLIOTT EDUARDO', 'HERNANDEZ MACIAS', 'HEME830620F61', 'HEME830620HNTRCL09', NULL, true, '1983-06-20', 'CASADO', 'Calle 16 de Septiembre 156, Col. Acayapan, Tepic, Nay.', '3111000056', 'elliott.hernandez@empresa.mx', NULL),
-('9JLKW', 'MARIO ALBERTO', 'ALVARADO BECERRA', 'AABM870828G72', 'AABM870828HJCLCR03', NULL, true, '1987-08-28', 'CASADO', 'Calle 20 de Noviembre 157, Col. San Juan, Tepic, Nay.', '3111000057', 'mario.alvarado@empresa.mx', NULL),
-('9B647', 'SERGIO', 'URIBE RODRIGUEZ', 'UIRS730615H83', 'UIRS730615HJCRDR08', NULL, true, '1973-06-15', 'CASADO', 'Calle Constitución 158, Col. Obrera, Tepic, Nay.', '3111000058', 'sergio.uribe@empresa.mx', NULL),
-('9JJJM', 'EDGARDO', 'BUSTAMANTE ORTIZ', 'BUOE800212J15', 'BUOE800212HBCSRD02', NULL, true, '1980-02-12', 'CASADO', 'Calle Aldama 160, Col. Centro, Tepic, Nay.', '3111000060', 'edgardo.bustamante@empresa.mx', NULL),
-('9NM8P', 'CAROLINA', 'SILVA VILLALVAZO', 'SIVC960527K26', 'SIVC960527MJCLLR04', NULL, true, '1996-05-27', 'SOLTERO', 'Calle Galeana 161, Col. Mololoa, Tepic, Nay.', '3111000061', 'carolina.silva@empresa.mx', NULL),
-('9JLXG', 'LUIS FERNANDO', 'TOSCANO AMEZQUITA', 'TOAL900413L37', 'TOAL900413HNTSMS06', NULL, true, '1990-04-13', 'CASADO', 'Calle Matamoros 162, Col. San José, Tepic, Nay.', '3111000062', 'luis.toscano@empresa.mx', NULL),
-('9JLGT', 'DANIEL FERNANDO', 'MORENO ZAVALA', 'MOZD760420M48', 'MOZD760420HJCRVN00', NULL, true, '1976-04-20', 'CASADO', 'Calle Rayón 163, Col. Santa Teresita, Tepic, Nay.', '3111000063', 'daniel.moreno@empresa.mx', NULL),
-('G182T', 'ILSE YADIRA', 'PEREZ HERNANDEZ', 'PEHI910217N59', 'PEHI910217MNTRRL06', NULL, true, '1991-02-17', 'SOLTERO', 'Calle Guerrero 164, Col. Fovissste, Tepic, Nay.', '3111000064', 'ilse.perez@empresa.mx', NULL),
-('G183T', 'ITZEL ESTEFANIA', 'ROBLES SILLAS', 'ROSI930131P60', 'ROSI930131MNTBLT06', NULL, true, '1993-01-31', 'SOLTERO', 'Calle Victoria 165, Col. Valle Verde, Tepic, Nay.', '3111000065', 'itzel.robles@empresa.mx', NULL),
-('9JLH9', 'ADRIANA', 'ALCARAZ TRINIDAD', 'AATA860915Q71', 'AATA860915MMNLRD02', NULL, true, '1986-09-15', 'CASADO', 'Calle Iturbide 166, Col. Centro, Tepic, Nay.', '3111000066', 'adriana.alcaraz@empresa.mx', NULL),
-('9JLMY', 'FELIPE ALBERTO', 'MENDOZA MARQUEZ', 'MEMF861114S93', 'MEMF861114HNTNRL03', NULL, true, '1986-11-14', 'CASADO', 'Calle Zaragoza 168, Col. Hermosa Provincia, Tepic, Nay.', '3111000068', 'felipe.mendoza@empresa.mx', NULL),
-('9AW1C', 'RAUL VIDAL', 'CARRILLO CERVANTES', 'CACR800516T14', 'CACR800516HNTRRL09', NULL, true, '1980-05-16', 'CASADO', 'Calle Ocampo 169, Col. Los Sauces, Tepic, Nay.', '3111000069', 'raul.carrillo@empresa.mx', NULL),
-('9JJ5L', 'EVERARDO', 'RAMIREZ CALDERON', 'RACE750721U25', 'RACE750721HMNMLV07', NULL, true, '1975-07-21', 'CASADO', 'Calle Negrete 170, Col. San Antonio, Tepic, Nay.', '3111000070', 'everardo.ramirez@empresa.mx', NULL),
-('9JLYR', 'JUAN JOSE', 'RAMOS GONZALEZ', 'RAGJ860414V36', 'RAGJ860414HNTMNN07', NULL, true, '1986-04-14', 'CASADO', 'Calle Arteaga 171, Col. Burócrata, Tepic, Nay.', '3111000071', 'juan.ramos@empresa.mx', NULL),
-('9AVUW', 'JESUS ARTURO', 'OCAMPO ARIAS', 'OAAJ741206W47', 'OAAJ741206HNTCRS01', NULL, true, '1974-12-06', 'CASADO', 'Calle Bravo 172, Col. Centro, Tepic, Nay.', '3111000072', 'jesus.ocampo@empresa.mx', NULL),
-('9EFKR', 'SANTIAGO ALONSO', 'NIEVES PARRA', 'NIPS740727X58', 'NIPS740727HNTVRN01', NULL, true, '1974-07-27', 'CASADO', 'Calle Lerdo 173, Col. San Juan, Tepic, Nay.', '3111000073', 'santiago.nieves@empresa.mx', NULL),
-('9AW1X', 'HILDA MARGARITA', 'DESSAVRE RICO', 'DERH790601Z70', 'DERH790601MNTSCL02', NULL, true, '1979-06-01', 'CASADO', 'Calle Insurgentes 175, Col. Centro, Tepic, Nay.', '3111000075', 'hilda.dessavre@empresa.mx', NULL),
-('9JLY1', 'LUIS EDUARDO', 'BARBA GARCIA', 'BAGL900830A81', 'BAGL900830HNTRRS01', NULL, true, '1990-08-30', 'SOLTERO', 'Calle Jacarandas 176, Col. San Juan, Tepic, Nay.', '3111000076', 'luis.barba@empresa.mx', NULL),
-('9NM3T', 'EDGAR GILBERTO', 'SANDOVAL SANCHEZ', 'SASE930824B92', 'SASE930824HNTNND02', NULL, true, '1993-08-24', 'SOLTERO', 'Av. Tecnológico 177, Col. Lagos del Country, Tepic, Nay.', '3111000077', 'edgar.sandoval@empresa.mx', NULL),
-('9JJKU', 'JORGE ARMANDO', 'HUERTA RAMOS', 'HURJ790723C13', 'HURJ790723HNTRMR06', NULL, true, '1979-07-23', 'CASADO', 'Calle Mina 178, Col. Acayapan, Tepic, Nay.', '3111000078', 'jorge.huerta@empresa.mx', NULL),
-('9JJ53', 'HUGO ENRIQUE', 'GONZALEZ SERRANO', 'GOSH781126D24', 'GOSH781126HNTNRG07', NULL, true, '1978-11-26', 'CASADO', 'Calle Abasolo 179, Col. San José, Tepic, Nay.', '3111000079', 'hugo.gonzalez@empresa.mx', NULL),
-('9JLK0', 'ADRIANA', 'GONZALEZ AMEZCUA', 'GOAA740305E35', 'GOAA740305MJCNMD06', NULL, true, '1974-03-05', 'DIVORCIADO', 'Calle Puebla 180, Col. Menchaca, Tepic, Nay.', '3111000080', 'adriana.gonzalez@empresa.mx', NULL);
+    estado VARCHAR(20) NOT NULL DEFAULT 'BORRADOR'
+        CHECK (estado IN (
+            'BORRADOR',
+            'PENDIENTE',
+            'APROBADA',
+            'RECHAZADA',
+            'CANCELADA'
+        )),
 
-INSERT INTO curso (codigoCurso, nombre, horasPracticas, horasTeoria, generaDC3, tipoCurso) VALUES
-('CAA0319', 'ACTAS ADMINISTRATIVAS', 3, 12, false, 'ADMINISTRATIVO'),
-('CAA0059', 'ACTUALIZACION DE AUDITORES INTEGRALES', 20, 60, false, 'TECNICO'),
-('CAA0005', 'ACTUALIZACIÓN FISCAL', 20, 20, false, 'ADMINISTRATIVO'),
-('CAA0356', 'ADMINISTRACION BASICA', 10, 10, false, 'ADMINISTRATIVO'),
-('CAY0005', 'ADMINISTRACIÓN BÁSICA', 20, 20, false, 'ADMINISTRATIVO'),
-('CAA0220', 'ADMINISTRACION DE CONTRATOS DE OBRAS Y SERVICIOS', 16, 24, false, 'ADMINISTRATIVO'),
-('CAA0176', 'ADMINISTRACIÓN DE PROYECTOS', 12, 28, false, 'ADMINISTRATIVO'),
-('CAY0056', 'ADMINISTRACIÓN DE RECURSOS HUMANOS', 40, 0, false, 'ADMINISTRATIVO'),
-('CAY0210', 'ADMINISTRACIÓN DEL TIEMPO', 20, 0, false, 'ADMINISTRATIVO'),
-('CAY0148', 'ADMINISTRACIÓN ESTRATÉGICA CONCEPTOS BÁSICOS', 40, 0, false, 'ADMINISTRATIVO'),
-('CAY0075', 'ADMINISTRACIÓN FINANCIERA', 12, 28, false, 'ADMINISTRATIVO'),
-('CAY0055', 'ADMINISTRACIÓN PARA INGENIEROS', 28, 12, false, 'ADMINISTRATIVO'),
-('CAY0239', 'ALINEACIÓN AL PROCESO DE EVALUACIÓN PARA CERTIFICACIÓN DE INSTRUCTORES EN EL EC0217.01 (B-LEARNING)', 6, 14, false, 'ADMINISTRATIVO'),
-('CAA0354', 'AMOR A MI CFE', 24, 12, false, 'ADMINISTRATIVO'),
-('CAY0244', 'ANÁLISIS DE RIESGOS DE SST', 32, 8, false, 'ADMINISTRATIVO'),
-('CAA0342', 'ARGUMENTACIÓN JURIDICA', 13, 3, false, 'ADMINISTRATIVO'),
-('CAA0280', 'BASICO AUTOMOTRIZ', 8, 32, false, 'TECNICO'),
-('CAY0174', 'BÁSICO EVALUACIÓN DE ESTRUCTURAS', 0, 10, false, 'ADMINISTRATIVO'),
-('CAY0014', 'BENCHMARKING', 0, 40, false, 'ADMINISTRATIVO'),
-('CAY0004', 'CALIDAD EN EL SERVICIO', 28, 12, false, 'ADMINISTRATIVO'),
-('CAY0219', 'CONCEPTOS BÁSICOS PARA LOGRAR UNA CULTURA DE CALIDAD, AMBIENTAL Y SEGURIDAD EN LA CFE', 10, 0, false, 'ADMINISTRATIVO'),
-('CAY0176', 'CONOCIENDO SINAPROC', 10, 0, false, 'ADMINISTRATIVO'),
-('CAY0047', 'CONOCIMIENTOS BÁSICOS PARA ASISTENTES EJECUTIVAS', 40, 0, false, 'ADMINISTRATIVO'),
-('CAY0057', 'CONTABILIDAD', 4, 36, false, 'ADMINISTRATIVO'),
-('CAY0049', 'CONTABILIDAD BASICA', 24, 16, false, 'ADMINISTRATIVO'),
-('CAA0308', 'CONTRATO COLECTIVO DE TRABAJO', 0, 20, false, 'ADMINISTRATIVO'),
-('CAY0260', 'CORROSIÓN Y PROTECCIÓN CATÓDICA', 20, 0, false, 'TECNICO'),
-('CAY0268', 'CURSO BÁSICO DE DERECHOS HUMANOS', 24, 0, false, 'ADMINISTRATIVO'),
-('CAY0271', 'CURSO BÁSICO DE PROTECCIÓN CIVIL', 4, 16, false, 'ADMINISTRATIVO'),
-('CAY0255', 'DERECHO MERCANTIL', 0, 40, false, 'ADMINISTRATIVO'),
-('CAY0254', 'DERECHO PROCESAL LABORAL', 0, 40, false, 'ADMINISTRATIVO'),
-('CAA0278', 'DESARROLLO DE AUDITORES PARA LA ISO 19011:2011', 0, 16, false, 'ADMINISTRATIVO'),
-('CAA0244', 'DESARROLLO DE AUDITORES PARA LA ISO 45001:2018', 0, 20, false, 'ADMINISTRATIVO'),
-('CAA0279', 'DESARROLLO DE AUDITORIA INTERNA BAJO LA ISO 9001:2015', 0, 16, false, 'ADMINISTRATIVO'),
-('CAA0300', 'DICTÁMENES (JUBILACIÓN, SEPARACIÓN VOLUNTARIA, FINIQUITOS)', 16, 24, false, 'ADMINISTRATIVO'),
-('CAY0080', 'DIPLOMADO EN FORMACIÓN DE MANDOS MEDIOS MODULO I (COMUNICACIÓN INTERPERSONAL)', 4, 36, false, 'ESPECIALIZADO'),
-('CAY0081', 'DIPLOMADO EN FORMACIÓN DE MANDOS MEDIOS MODULO II (TOMA DE DECISIONES Y LIDERAZGO)', 4, 36, false, 'ESPECIALIZADO'),
-('CAY0082', 'DIPLOMADO EN FORMACIÓN DE MANDOS MEDIOS MODULO III (DIRECCIÓN DE EQUIPOS Y ADMINISTRACIÓN DE PROYECTOS)', 4, 36, false, 'ESPECIALIZADO'),
-('CAA0289', 'DIPLOMADO EN GESTIÓN ESTRATÉGICA MÓDULO I', 0, 40, false, 'ESPECIALIZADO'),
-('CAA0290', 'DIPLOMADO EN GESTIÓN ESTRATÉGICA MÓDULO II', 0, 40, false, 'ESPECIALIZADO'),
-('CAA0291', 'DIPLOMADO EN GESTIÓN ESTRATÉGICA MÓDULO III', 40, 0, false, 'ESPECIALIZADO'),
-('CAA0292', 'DIPLOMADO EN GESTIÓN ESTRATÉGICA MÓDULO IV', 0, 40, false, 'ESPECIALIZADO'),
-('CAA0311', 'DISPOSICIONES GENERALES EN MATERIA DE ADQUISICIONES, ARRENDAMIENTOS, CONTRATACIÓN DE SERVICIOS Y EJECUCIÓN DE OBRAS DE LA CFE Y SUS EPS', 6, 14, false, 'ADMINISTRATIVO'),
-('CAY0149', 'EJECUTIVO EFICAZ I (8 PRÁCTICAS)', 4, 16, false, 'ADMINISTRATIVO'),
-('CAY0150', 'EJECUTIVO EFICAZ II (VENTAS EFECTIVAS)', 4, 16, false, 'ADMINISTRATIVO'),
-('CAY0151', 'EJECUTIVO EFICAZ III (CAPACIDAD DE ANÁLISIS)', 4, 16, false, 'ADMINISTRATIVO'),
-('CAY0199', 'ELABORACIÓN DE PERFILES', 19, 5, false, 'ADMINISTRATIVO'),
-('CAY0225', 'ELABORACIÓN DE PERFILES MODULO I', 4, 4, false, 'ADMINISTRATIVO'),
-('CAA0302', 'ELABORACIÓN DE PERFILES MODULO II', 20, 20, false, 'ADMINISTRATIVO'),
-('CAA0349', 'EMPODERAMIENTO, LIDERAZGO ENFOCADO Y RETROALIMENTACIONES ASERTIVAS', 24, 12, false, 'ADMINISTRATIVO'),
-('CAY0233', 'ENERGIAS RENOVABLES Y NO RENOVABLES', 0, 20, false, 'ADMINISTRATIVO'),
-('CAA0265', 'ETICA CORPORATIVA E INTEGRIDAD PUBLICA', 4, 36, false, 'ADMINISTRATIVO'),
-('CAY0191', 'ÉTICA CORPORATIVA E INTEGRIDAD PUBLICA (SESIÓN DE ACTUALIZACIÓN Y HABILITACIÓN)', 20, 0, false, 'ADMINISTRATIVO'),
-('CAY0224', 'ÉTICA CORPORATIVA EN LA CFE', 0, 20, false, 'ADMINISTRATIVO'),
-('CAY0051', 'ÉTICA Y TRANSPARENCIA', 20, 0, false, 'ADMINISTRATIVO'),
-('CAY0272', 'FACTURACIÓN DE TARIFAS ELECTRICAS', 32, 8, false, 'ADMINISTRATIVO'),
-('CAA0114', 'FINANZAS PARA NO FINANCIEROS', 40, 0, false, 'ADMINISTRATIVO'),
-('CAA0025', 'FORMACIÓN DE AUDITORES INTEGRALES MÓDULO I', 24, 16, false, 'ADMINISTRATIVO'),
-('CAA0026', 'FORMACIÓN DE AUDITORES INTEGRALES MÓDULO II', 16, 24, false, 'ADMINISTRATIVO'),
-('CAY0043', 'FUNDAMENTOS DE EQUIPOS DE TRABAJO A DISTANCIA', 0, 40, false, 'ADMINISTRATIVO'),
-('CAY0093', 'FUNDAMENTOS DE LAS TÉCNICAS DE NEGOCIACIÓN Y MANEJO DE CONFLICTOS', 0, 40, false, 'ADMINISTRATIVO'),
-('CAY0201', 'FUNDAMENTOS DE TÉCNICAS DE NEGOCIACIÓN', 36, 4, false, 'ADMINISTRATIVO'),
-('CAA0152', 'GESTIÓN DE RIESGOS EN LA ORGANIZACIÓN', 20, 20, false, 'TECNICO'),
-('CAY0243', 'GESTIÓN DE RIESGOS OPERATIVOS Y OPORTUNIDADES', 21, 3, false, 'ADMINISTRATIVO'),
-('CAY0273', 'GESTIÓN EFECTIVA DEL TIEMPO', 16, 4, false, 'ADMINISTRATIVO'),
-('CAY0003', 'HERRAMIENTAS ESTADÍSTICAS BÁSICAS', 20, 20, false, 'ADMINISTRATIVO'),
-('CAY0133', 'HERRAMIENTAS SECRETARIALES', 24, 16, false, 'ADMINISTRATIVO'),
-('CAY0245', 'IDENTIFICACIÓN DE PELIGROS Y EVALUACIÓN DE RIESGOS DE SST CONFORME AL PROCEDIMIENTO P-1020-007', 0, 8, false, 'ADMINISTRATIVO'),
-('CAY0177', 'IGUALDAD DE OPORTUNIDADES. UNA REALIDAD EN CFE', 0, 10, false, 'ADMINISTRATIVO'),
-('CAA0298', 'INDUCCION A LA COMISION FEDERAL DE ELECTRICIDAD 2022', 0, 10, false, 'ADMINISTRATIVO'),
-('CAY0220', 'INDUCCIÓN A LA INFORMACIÓN DOCUMENTADA TRANSVERSAL', 40, 0, false, 'ADMINISTRATIVO'),
-('CAY0216', 'INDUCCION A LA INTELIGENCIA EMOCIONAL (AUTODIRIGIDO)', 0, 16, false, 'ADMINISTRATIVO'),
-('CAY0267', 'INDUCCION A LA SEGURIDAD SOCIAL (LEY DEL SEGURO SOCIAL)', 28, 12, false, 'ADMINISTRATIVO'),
-('CAY0218', 'INDUCCIÓN AL SISTEMA INTEGRAL DE GESTIÓN CFE', 0, 10, false, 'ADMINISTRATIVO'),
-('CAY0109', 'INGLES BÁSICO I', 24, 16, false, 'ADMINISTRATIVO'),
-('CAA0310', 'INTERPRETACIÓN Y APLICACIÓN DEL CONTRATO COLECTIVO DE TRABAJO CFE-SUTERM', 24, 16, false, 'ADMINISTRATIVO'),
-('CAA0355', 'INTRODUCCIÓN A CFE CON ENFOQUE A RELACIONES LABORALES', 12, 12, false, 'ADMINISTRATIVO'),
-('CAY0012', 'INTRODUCCION A COSTOS Y PRECIOS UNITARIOS', 28, 12, false, 'ADMINISTRATIVO'),
-('CAY0136', 'INTRODUCCION A HERRAMIENTAS ESTADÍSTICAS', 20, 16, false, 'ADMINISTRATIVO'),
-('CAY0193', 'INTRODUCCIÓN A LA DETECCIÓN DE NECESIDADES DE CAPACITACIÓN', 8, 0, false, 'ADMINISTRATIVO'),
-('CAY0240', 'INTRODUCCION A LA ELABORACION DE SOLCON Y ORDENES MENORES', 10, 0, false, 'ADMINISTRATIVO'),
-('CAY0165', 'INTRODUCCIÓN A LA LEY DE LA INDUSTRIA ELÉCTRICA Y SU REGLAMENTO', 32, 8, false, 'ADMINISTRATIVO'),
-('CAY0137', 'INTRODUCCIÓN A LA SEGURIDAD E HIGIENE BÁSICO', 18, 2, false, 'ADMINISTRATIVO'),
-('CAY0071', 'INTRODUCCIÓN A LOS CONCEPTOS DE FINANZAS', 28, 12, false, 'ADMINISTRATIVO'),
-('CAY0038', 'INTRODUCCION AL COACHING', 0, 20, false, 'ADMINISTRATIVO'),
-('CAY0200', 'INTRODUCCIÓN AL MANEJO DE CONFLICTOS', 36, 4, false, 'ADMINISTRATIVO'),
-('CAY0142', 'INTRODUCCIÓN AL PLAN FAMILIAR DE PROTECCIÓN CIVIL', 20, 0, false, 'ADMINISTRATIVO'),
-('CAA0325', 'INTRODUCCIÓN AL SISTEMA DE CONTROL INTERNO EN LA CFE', 16, 0, false, 'ADMINISTRATIVO'),
-('CAY0246', 'ISO 14001:2015 IMPLEMENTADO EN LA CFE', 24, 0, false, 'ADMINISTRATIVO'),
-('CAY0221', 'ISO 19011:2018 IMPLEMENTADO EN LA CFE PARA EL PROCESO DE AUDITORIA', 24, 0, false, 'ADMINISTRATIVO'),
-('CAY0247', 'ISO 45001:2018 IMPLEMENTADO EN LA CFE', 3, 21, false, 'ADMINISTRATIVO'),
-('CAY0217', 'ISO 9001:2015 IMPLEMENTADO EN LA CFE', 24, 20, false, 'ADMINISTRATIVO'),
-('CAA0160', 'ISR SALARIOS, PRESTACIONES SIRH Y CFE', 0, 40, false, 'ADMINISTRATIVO'),
-('CAA0350', 'JUICIOS LABORALES', 16, 15, false, 'ADMINISTRATIVO'),
-('CAY0178', 'LA ÉTICA CORPORATIVA Y TOLERANCIA CERO A LA CORRUPCIÓN EN LA CFE. UNA EMPRESA PRODUCTIVA DEL ESTADO', 20, 0, false, 'ADMINISTRATIVO'),
-('CAY0249', 'LEGISLACIÓN EN MATERIA AMBIENTAL', 24, 0, false, 'ADMINISTRATIVO'),
-('CAY0248', 'LEGISLACIÓN EN MATERIA DE SST', 24, 0, false, 'ADMINISTRATIVO'),
-('CAA0128', 'LEY DE LA INDUSTRIA ELÉCTRICA REGLAMENTO Y BASES', 24, 20, false, 'ADMINISTRATIVO'),
-('CAY0160', 'LEY GENERAL DE RESPONSABILIDADES ADMINISTRATIVAS', 24, 0, false, 'ADMINISTRATIVO'),
-('CAA0196', 'LEY GENERAL DE RESPONSABILIDADES ADMINISTRATIVAS DE LOS SERVIDORES PÚBLICOS', 28, 12, false, 'TECNICO'),
-('CAY0044', 'LIDERAZGO CENTRADO EN PRINCIPIOS A DISTANCIA', 40, 0, false, 'ADMINISTRATIVO'),
-('CAY0068', 'MATEMATICAS FINACIERA', 20, 20, false, 'ADMINISTRATIVO'),
-('CAA0288', 'MEJORA CONTINUA DEL SIG-CFE APLICANDO LA ISO 9004:2018', 8, 32, false, 'ADMINISTRATIVO'),
-('CAA0199', 'MERCADO ELÉCTRICO MAYORISTA (BÁSICO)', 24, 16, false, 'ADMINISTRATIVO'),
-('CAY0015', 'METODOLOGÍA 9S', 40, 0, false, 'ADMINISTRATIVO'),
-('CAY0275', 'MINDFULNESS: ATENCIÓN PLENA', 28, 12, false, 'ADMINISTRATIVO'),
-('CAA0007', 'MÓDULO DE SEGURIDAD SOCIAL DEL SIRH', 0, 40, false, 'ADMINISTRATIVO'),
-('CAY0263', 'NOMINAS BÁSICO', 20, 20, false, 'ADMINISTRATIVO'),
-('CAY0002', 'ORTOGRAFÍA Y REDACCIÓN', 20, 20, false, 'ADMINISTRATIVO'),
-('CAY0037', 'PLANEACIÓN ESTRATEGICA', 40, 0, false, 'ADMINISTRATIVO'),
-('CAA0017', 'PLANEACIÓN FINANCIERA', 28, 12, false, 'ADMINISTRATIVO'),
-('CAA0316', 'PLANEACIÓN FISCAL', 36, 4, false, 'ADMINISTRATIVO'),
-('CAY0188', 'PREVENCIÓN DE CONFLICTO DE INTERESES', 20, 0, false, 'ADMINISTRATIVO'),
-('CAA0352', 'PROCESO DEL ABASTECIMIENTO DE BIENES Y SERVICIOS Y SU NORMATIVIDAD APLICABLE', 20, 0, false, 'ADMINISTRATIVO'),
-('CAY0134', 'RELACIONES HUMANAS', 40, 0, false, 'ADMINISTRATIVO'),
-('CAY0033', 'RESPONSABILIDAD SOCIAL CONCEPTOS BÁSICOS', 32, 8, false, 'ADMINISTRATIVO'),
-('CAA0100', 'SEGURIDAD SOCIAL MÓDULO I (LEY DEL SEGURO SOCIAL)', 40, 0, false, 'ADMINISTRATIVO'),
-('CAA0101', 'SEGURIDAD SOCIAL MÓDULO II (PROCEDIMIENTOS DE SEGURIDAD SOCIAL)', 20, 20, false, 'ADMINISTRATIVO'),
-('CAA0138', 'SEGURIDAD SOCIAL MÓDULO III', 40, 0, false, 'ADMINISTRATIVO'),
-('CAA0248', 'SEMINARIO FORMACIÓN DE HABILIDADES GERENCIALES MODULO I (PLANEACIÓN ESTRATÉGICA)', 16, 12, false, 'ADMINISTRATIVO'),
-('CAA0249', 'SEMINARIO FORMACIÓN DE HABILIDADES GERENCIALES MODULO II (CONOCIMIENTO FINANCIERO)', 16, 4, false, 'ADMINISTRATIVO'),
-('CAA0250', 'SEMINARIO FORMACIÓN DE HABILIDADES GERENCIALES MODULO III (COMUNICACIÓN ORGANIZACIONAL)', 12, 4, false, 'ADMINISTRATIVO'),
-('CAA0251', 'SEMINARIO FORMACIÓN DE HABILIDADES GERENCIALES MODULO IV (LIDERAZGO EN TU EQUIPO)', 12, 4, false, 'ADMINISTRATIVO'),
-('CAA0256', 'SEMINARIO FORMACIÓN DE HABILIDADES GERENCIALES MODULO IX (INNOVACIÓN GERENCIAL)', 16, 12, false, 'ADMINISTRATIVO'),
-('CAA0252', 'SEMINARIO FORMACIÓN DE HABILIDADES GERENCIALES MODULO V (TOMA DE DECISIONES ASERTIVAS)', 16, 12, false, 'ADMINISTRATIVO'),
-('CAA0253', 'SEMINARIO FORMACIÓN DE HABILIDADES GERENCIALES MODULO VI (GESTIÓN DEL CAMBIO)', 4, 12, false, 'ADMINISTRATIVO'),
-('CAA0254', 'SEMINARIO FORMACIÓN DE HABILIDADES GERENCIALES MODULO VII (ENTRENANDO EQUIPOS DE TRABAJO)', 12, 4, false, 'ADMINISTRATIVO'),
-('CAA0255', 'SEMINARIO FORMACIÓN DE HABILIDADES GERENCIALES MODULO VIII (ADMINISTRACIÓN DEL TIEMPO)', 16, 12, false, 'ADMINISTRATIVO'),
-('CAA0306', 'SISTEMA 5S', 17, 7, false, 'ADMINISTRATIVO'),
-('CAA0095', 'SISTEMA INTEGRAL DE RECURSOS HUMANOS (SIRH AVANZADO)', 0, 40, false, 'ADMINISTRATIVO'),
-('CAA0299', 'SISTEMA INTEGRAL DE RECURSOS HUMANOS (SIRH INTERMEDIO)', 24, 16, false, 'ADMINISTRATIVO'),
-('CAA0004', 'SISTEMA INTEGRAL DE RECURSOS HUMANOS PARA USUARIOS (SIRH BASICO)', 40, 0, false, 'ADMINISTRATIVO'),
-('CAA0157', 'TALLER DE ADMINISTRACIÓN DE SALARIOS Y PRESTACIONES', 28, 12, false, 'ESPECIALIZADO'),
-('CAA0275', 'TALLER EN MATERIA DE COMERCIO EXTERIOR Y TRANSPORTACIÓN DE MERCANCÍAS (TRÁFICO)', 12, 3, false, 'ADMINISTRATIVO'),
-('CAA0276', 'TALLER PARA LA ADMINISTRACIÓN DE BIENES EN LOS ALMACENES DE LA CFE Y SUS EPS CLAVE SEGUNDO NIVEL', 24, 16, false, 'ADMINISTRATIVO'),
-('CAY0250', 'TALLER PARA LA APLICACIÓN DEL SICACYP', 24, 19, false, 'ADMINISTRATIVO'),
-('CAY0251', 'TALLER PARA LA APLICACIÓN DEL SISST', 24, 19, false, 'ADMINISTRATIVO'),
-('CAY0252', 'TALLER PARA LA APLICACIÓN DEL SISTEMA VIGIA', 5, 19, false, 'ADMINISTRATIVO'),
-('CAA0353', 'TECNICAS DE INSTRUCCION GRUPALES', 21, 19, false, 'ADMINISTRATIVO'),
-('CAA0317', 'TECNICAS DE NEGOCIACION', 8, 32, false, 'ADMINISTRATIVO'),
-('CAY0073', 'TECNICAS DE NEGOCIACIÓN Y MARKETING', 12, 28, false, 'ADMINISTRATIVO'),
-('CAY0135', 'TÉCNICAS DE SUPERVISIÓN', 40, 0, false, 'ADMINISTRATIVO'),
-('CAY0264', 'TRABAJO EN EQUIPO', 16, 24, false, 'ADMINISTRATIVO'),
-('CAY0213', 'TRANSPARENCIA Y ACCESO A LA INFORMACION PUBLICA PARTE I (AUTODIRIGIDO)', 16, 0, false, 'ADMINISTRATIVO'),
-('CAY0214', 'TRANSPARENCIA Y ACCESO A LA INFORMACION PUBLICA PARTE II (AUTODIRIGIDO)', 16, 0, false, 'ADMINISTRATIVO'),
-('CAY0215', 'TRANSPARENCIA Y ACCESO A LA INFORMACION PUBLICA PARTE III (AUTODIRIGIDO)', 16, 0, false, 'ADMINISTRATIVO'),
-('CAY0207', 'TRASCENDER Y TRANSFORMAR', 0, 8, false, 'ADMINISTRATIVO'),
-('CAX0016', 'DESARROLLO DE CURSOS DE FORMACIÓN EN LINEA CON BASE EN EL ESTANDAR DE COMPETENCIA EC0366', 10, 30, false, 'ADMINISTRATIVO'),
-('CAX0017', 'DISEÑO DE CURSOS DE CAPACITACIÓN PRESENCIALES CON BASE EN EL ESTÁNDAR DE COMPETENCIA EC0301', 20, 20, false, 'ADMINISTRATIVO'),
-('CAX0003', 'EVALUACIÓN EN EL ESTANDAR EC0217 IMPARTICIÓN DE CURSOS DE FORMACIÓN DEL CAPITAL HUMANO DE MANERA PRESENCIAL GRUPAL', 36, 4, false, 'ADMINISTRATIVO'),
-('CAX0014', 'FORMACIÓN DE INSTRUCTORES CON BASE EN EL ESTÁNDAR DE COMPETENCIA EC0217.01', 20, 20, false, 'ADMINISTRATIVO'),
-('CIN0135', 'FORMULACIÓN DEL PRESUPUESTO DE CAJA Y DEVENGABLE', 12, 28, false, 'ADMINISTRATIVO'),
-('CAX0019', 'PROCESO DE EVALUACIÓN PARA CERTIFICACIÓN DE INSTRUCTORES EN EL ESTÁNDAR DE COMPETENCIA EC0217.01', 0, 40, false, 'ESPECIALIZADO'),
-('CAX0025', 'PROCESO DE EVALUACIÓN PARA CERTIFICACIÓN EN DISEÑO DE CURSOS DE CAPACITACIÓN PRESENCIALES EN EL ESTÁNDAR DE COPMPETENCIA EC0301', 0, 3, false, 'ADMINISTRATIVO'),
-('CAX0024', 'PROCESO DE EVALUACIÓN PARA CETIFICACIÓN EN DESARROLLO DE CURSOS DE FORMACIÓN EN LINEA EN EL ESTÁNDAR DE COMPETENCIA EC0366', 0, 3, false, 'ADMINISTRATIVO'),
-('CIN0100', 'SUPERVISION DEL PROCESO DE TESORERIA SISTEMA SAP', 12, 28, false, 'ADMINISTRATIVO'),
-('CAD0149', 'ADMINISTRACIÓN DEL TIEMPO', 0, 2, false, 'ADMINISTRATIVO'),
-('CAD0004', 'COMPORTAMIENTO HUMANO EN LAS ORGANIZACIONES', 28, 12, false, 'ADMINISTRATIVO'),
-('CAD0150', 'COMPORTAMIENTO PROACTIVO EN EL TRABAJO', 14, 6, false, 'ADMINISTRATIVO'),
-('CAD0098', 'DIPLOMADO EN ALTA DIRECCIÓN MÓDULO I (COACHING EJECUTIVO)', 28, 12, false, 'TECNICO'),
-('CAD0099', 'DIPLOMADO EN ALTA DIRECCIÓN MÓDULO II (COMUNICACIÓN)', 36, 4, false, 'TECNICO'),
-('CAD0100', 'DIPLOMADO EN ALTA DIRECCIÓN MÓDULO III (PLANEACIÓN Y PROYECTOS ESTRATÉGICOS)', 28, 12, false, 'TECNICO'),
-('CAD0101', 'DIPLOMADO EN ALTA DIRECCIÓN MÓDULO IV (ÉTICA GERENCIAL)', 12, 28, false, 'TECNICO'),
-('CAD0102', 'DIPLOMADO EN DESARROLLO DE HABILIDADES PARA ASISTENTES EJECUTIVAS MÓDULO I (ASISTENTES EJECUTIVAS DE EXCELENCIA)', 4, 36, false, 'ESPECIALIZADO'),
-('CAD0103', 'DIPLOMADO EN DESARROLLO DE HABILIDADES PARA ASISTENTES EJECUTIVAS MÓDULO II (ADMINISTRACIÓN Y COMUNICACIÓN)', 4, 36, false, 'ESPECIALIZADO'),
-('CAD0155', 'DIPLOMADO EN DESARROLLO DE HABILIDADES PARA ASISTENTES EJECUTIVAS MÓDULO III (ARCHIVONOMIA E IMAGEN CORPORATIVA)', 20, 20, false, 'ESPECIALIZADO'),
-('CAD0104', 'DIPLOMADO EN DESARROLLO DE HABILIDADES PARA ASISTENTES EJECUTIVAS MÓDULO III (SALUD Y BELLEZA)', 8, 32, false, 'ESPECIALIZADO'),
-('CAD0105', 'DIPLOMADO EN DESARROLLO DE HABILIDADES PARA ASISTENTES EJECUTIVAS MÓDULO IV (ARCHIVONOMÍA)', 28, 12, false, 'ESPECIALIZADO'),
-('CAY0083', 'DIPLOMADO EN DESARROLLO HUMANO MÓDULO I (FUNDAMENTOS DEL DESARROLLO HUMANO)', 0, 36, false, 'ESPECIALIZADO'),
-('CAY0084', 'DIPLOMADO EN DESARROLLO HUMANO MÓDULO II (COMUNICACIÓN)', 36, 4, false, 'ESPECIALIZADO'),
-('CAY0085', 'DIPLOMADO EN DESARROLLO HUMANO MÓDULO III (ÉTICA Y VALORES)', 0, 36, false, 'ESPECIALIZADO'),
-('CAD0045', 'DIPLOMADO EN DESARROLLO HUMANO MÓDULO IV', 32, 8, false, 'ADMINISTRATIVO'),
-('CAD0097', 'DIPLOMADO EN DESARROLLO HUMANO MÓDULO IV (LA PERSONA SU FAMILIA Y EL TRABAJO)', 36, 4, false, 'ADMINISTRATIVO'),
-('CAD0090', 'DIPLOMADO EN FORMACIÓN DE MANDOS MEDIOS MODULO I (COMUNICACIÓN INTERPERSONAL)', 36, 4, false, 'ESPECIALIZADO'),
-('CAD0091', 'DIPLOMADO EN FORMACIÓN DE MANDOS MEDIOS MODULO II (TOMA DE DECISIONES Y LIDERAZGO)', 0, 36, false, 'ESPECIALIZADO'),
-('CAD0092', 'DIPLOMADO EN FORMACIÓN DE MANDOS MEDIOS MODULO III (DIRECCIÓN DE EQUIPOS Y ADMINISTRACIÓN DE PROYECTOS)', 0, 36, false, 'ESPECIALIZADO'),
-('CAD0037', 'DIPLOMADO EN FORMACIÓN DE MANDOS MEDIOS MÓDULO IV', 28, 12, false, 'ADMINISTRATIVO'),
-('CAD0093', 'DIPLOMADO EN FORMACIÓN DE MANDOS MEDIOS MODULO IV (FUNCIÓN FINANCIERA DE LA EMPRESA)', 36, 4, false, 'ESPECIALIZADO'),
-('CAD0018', 'DISEÑO DE CURSOS DE CAPACITACIÓN', 20, 20, false, 'ADMINISTRATIVO'),
-('CAD0142', 'EL ARTE DEL SERVICIO AL CLIENTE CON METODOLOGÍA DISNEY', 40, 0, false, 'ADMINISTRATIVO'),
-('CAD0147', 'EMPODERAMIENTO, LIDERAZGO Y RETROALIMENTACIONES ASERTIVAS', 12, 28, false, 'ADMINISTRATIVO'),
-('CAD0019', 'IMPARTICIÓN DE CURSOS DE CAPACITACIÓN', 20, 20, false, 'ADMINISTRATIVO'),
-('CAD0002', 'INTEGRACIÓN DE EQUIPOS DE TRABAJO', 24, 16, false, 'ADMINISTRATIVO'),
-('CAD0151', 'INTELIGENCIA EMOCIONAL Y CONTROL DEL ESTRÉS', 6, 2, false, 'ADMINISTRATIVO'),
-('CAY0074', 'INTRODUCCIÓN A FUNDAMENTOS DEL DESEMPEÑO HUMANO', 32, 8, false, 'ADMINISTRATIVO'),
-('CAD0135', 'JUBILACIÓN: LO QUE USTED Y SU FAMILIA DEBEN SABER (AUTODIRIGIDO)', 8, 0, false, 'ADMINISTRATIVO'),
-('CAD0011', 'LIDERAZGO CENTRADO EN PRINCIPIOS', 28, 12, false, 'ADMINISTRATIVO'),
-('CAD0140', 'MANEJO DE CONFLICTOS', 12, 28, false, 'ADMINISTRATIVO'),
-('CAD0134', 'MANEJO Y CONTROL DE ESTRÉS', 0, 20, false, 'ADMINISTRATIVO'),
-('CAD0008', 'PROYECTO EMPRENDEDOR HACIA UNA NUEVA ETAPA DE VIDA', 30, 10, false, 'ADMINISTRATIVO'),
-('CAD0122', 'TALLER PARA EL DESARROLLO DE HABILIDADES PARA ASISTENTES EJECUTIVAS', 24, 16, false, 'ADMINISTRATIVO'),
-('CAD0143', 'TECNICAS DE COMO HABLAR EN PUBLICO Y VENCER EL MIEDO ANTE LOS DEMAS', 40, 0, false, 'ADMINISTRATIVO'),
-('CAD0148', 'TÉCNICAS DE COMO HABLAR EN PÚBLICO Y VENCER EL MIEDO ANTE LOS DEMAS', 24, 16, false, 'ADMINISTRATIVO'),
-('CAD0007', 'TÉCNICAS DE NEGOCIACIÓN Y MANEJO DE CONFLICTOS', 28, 12, false, 'ADMINISTRATIVO'),
-('CAD0003', 'TÉCNICAS DE SUPERVISIÓN', 28, 12, false, 'ADMINISTRATIVO'),
-('CA00026', 'ADMINISTRACIÓN DE LOS CONTRATOS EN MATERIA DE OBRA Y SERVICIOS RELACIONADOS', 12, 28, false, 'ADMINISTRATIVO'),
-('CAY0187', 'DISPOSICIONES GENERALES EN MATERIA DE OBRA DE C.F.E. Y SUS EMPRESAS PRODUCTIVAS SUBSIDIARIAS', 24, 0, false, 'ADMINISTRATIVO'),
-('CAO0019', 'ELABORACIÓN DE PROYECTOS EJECUTIVOS PARA CONTRATAR OBRA', 12, 28, false, 'ADMINISTRATIVO'),
-('CA00006', 'TALLER DE AJUSTES DE COSTOS Y PRECIOS UNITARIOS', 28, 12, false, 'ESPECIALIZADO'),
-('CAO0001', 'TALLER DE COSTOS Y PRECIOS UNITARIOS', 28, 12, false, 'ESPECIALIZADO'),
-('CAO0021', 'TALLER DE EVALUACIÓN DE OFERTAS EN LICITACIONES DE OBRA Y SERVICIOS', 28, 12, false, 'TECNICO'),
-('CAO0020', 'TALLER DE MANEJO Y EJECUCIÓN DE OBRAY SERVICIOS', 12, 28, false, 'ESPECIALIZADO'),
-('CDD0206', 'ANÁLISIS DE RIESGO EN SITIO Y REUNIÓN INICIO DE MANIOBRA', 24, 0, false, 'TECNICO'),
-('CDD0145', 'CATALOGO DE MATERIALES NORMALIZADOS DE LA INDUSTRIA ELECTRICA', 2, 6, false, 'TECNICO'),
-('CDY0016', 'CONOCIMIENTOS BASICOS EJECUCIÓN DEL MANTENIMIENTO A LÍNEAS Y REDES AÉREAS DE DISTRIBUCIÓN EN MEDIA Y BAJA TENSIÓN. E1-0031.02', 40, 0, false, 'ADMINISTRATIVO'),
-('CDD0162', 'CONOCIMIENTOS GEOGRAFICOS DE CIRCUITOS', 12, 12, false, 'ADMINISTRATIVO'),
-('CDD0006', 'DETECCIÓN DE FALLAS EN REDES SUBTERRÁNEAS', 40, 0, false, 'TECNICO'),
-('CDD0011', 'DIAGNÓSTICO DE FALLAS EN TRANSFORMADORES DE DISTRIBUCIÓN', 28, 12, false, 'ESPECIALIZADO'),
-('CDD0252', 'DISEÑO DE SUBESTACIONES', 40, 0, false, 'TECNICO'),
-('CDD0281', 'ELABORACIÓN DE ACCESORIOS PARA SISTEMAS DE DISTRIBUCIÓN SUBTERRÁNEO. LLV.', 15, 9, false, 'TECNICO'),
-('CDD0204', 'FUNDAMENTOS DE BANCO DE CAPACITORES, UTILIZACION Y OPERACIÓN EN LINEAS DE MT DE DISTRIBUCION', 0, 40, false, 'ADMINISTRATIVO'),
-('CDY0029', 'FUNDAMENTOS DE PROTECCIONES PARA SUBESTACIONES I', 20, 0, false, 'TECNICO'),
-('CDY0030', 'FUNDAMENTOS DE PROTECCIONES PARA SUBESTACIONES II', 20, 0, false, 'TECNICO'),
-('CDY0002', 'FUNDAMENTOS DE REDES DE DISTRIBUCIÓN', 32, 8, false, 'ADMINISTRATIVO'),
-('CDY0021', 'FUNDAMENTOS DEL REGLAMENTO DE SEGURIDAD E HIGIENE CAPITULO 100 DISTRIBUCIÓN PARA PERSONAL DE OFICINA', 20, 0, false, 'TECNICO'),
-('CDY0028', 'FUNDAMENTOS PARA EL MANTENIMIENTO Y REPARACIÓN DE PÉRTIGAS AISLADAS', 0, 20, false, 'TECNICO'),
-('CDY0011', 'FUNDAMENTOS TEORICOS DE SISTEMAS DE TIERRA', 0, 20, false, 'ADMINISTRATIVO'),
-('CDD0282', 'IDENTIFICACIÓN DE EQUIPO EN SUBESTACIONES (CUCHILLAS, INTERRUPTORES, NOMENCLATURA).', 18, 6, false, 'TECNICO'),
-('CDY0036', 'INSTRUCTIVO TECNICO DE PODA DE ARBOLES Y LIMPIEZA DE BRECHA EN LINEAS Y REDES DE DISTRIBUCION', 16, 0, false, 'ADMINISTRATIVO'),
-('CDD0180', 'MANIOBRAS DE SUBESTACIONES EN CAMPO', 20, 20, false, 'ESPECIALIZADO'),
-('CDY0037', 'MANUAL REGULATORIO DE COORDINACIÓN OPERATIVA', 40, 0, false, 'ADMINISTRATIVO'),
-('CDY0032', 'NORMAS DE CONSTRUCCIÓN SUBTERRANEAS', 20, 20, false, 'ADMINISTRATIVO'),
-('CDD0169', 'OPERACION Y MANEJO DE RESTAURADORES', 0, 20, false, 'ESPECIALIZADO'),
-('CDY0009', 'PRINCIPIOS DE PROTECCIONES ELECTRICAS', 20, 0, false, 'ADMINISTRATIVO'),
-('CDY0013', 'PROTECCION CATODICA Y RECUBRIMIENTOS ANTICORROSIVOS EN ESTRUCTURAS METALICAS', 20, 0, false, 'ADMINISTRATIVO'),
-('CDD0005', 'PROTOCOLO DE COMUNICACIONES DNP3 (DISTRIBUCION)', 40, 0, false, 'TECNICO'),
-('CDY0001', 'PROTOCOLOS DE COMUNICACIÓN DE DATOS', 20, 20, false, 'ADMINISTRATIVO'),
-('CDD0007', 'PRUEBAS DE PUESTA EN SERVICIO Y LOCALIZACIÓN DE FALLAS EN INSTALACIONES DE DISTRIBUCIÓN SUBTERRÁNEA', 40, 0, false, 'TECNICO'),
-('CDD0004', 'REDES DE DISTRIBUCIÓN SUBTERRÁNEA', 16, 24, false, 'TECNICO'),
-('CDY0022', 'REGLAMENTO DE SEGURIDAD E HIGIENE CAPITULO 100 DISTRIBUCIÓN PARA PERSONAL DE CAMPO', 40, 0, false, 'TECNICO'),
-('CDD0260', 'TRABAJOS EN LÍNEAS ENERGIZADAS AISLADO SOBRE AISLADO LELV', 16, 24, false, 'ADMINISTRATIVO'),
-('CDA0001', 'INSPECCIÓN Y MANTENIMIENTO A LÍNEAS Y REDES DE DISTRIBUCIÓN (TRABAJOS EN LÍNEA ENERGIZADA SEGUNDA ETAPA)', 40, 32, false, 'TECNICO'),
-('CDA0002', 'TRABAJOS EN ESPACIOS CONFINADOS', 0, 40, false, 'TECNICO'),
-('CDP0019', 'CALIDAD DE LA POTENCIA ELÉCTRICA PARA CFE DISTRIBUCIÓN', 32, 0, false, 'ESPECIALIZADO'),
-('CDP0014', 'ELABORACIÓN DE EMPALMES Y TERMINALES EN REDES SUBTERRÁNEAS MT Y AT', 28, 12, false, 'ESPECIALIZADO'),
-('CDP0026', 'MANIOBRA DE HOMBRE SOLO PARA LA ATENCIÓN DE CONEXIÓN DE SUMINISTROS Y DE SOLICITUDES DEL PROCESO DE COMERCIALIZACIÓN', 8, 32, false, 'TECNICO'),
-('CDP0027', 'MANIOBRA DE HOMBRE SOLO PARA LA ATENCIÓN DE MANIOBRAS EN REPOSICIÓN DE FUSIBLES', 40, 8, false, 'TECNICO'),
-('CDP0024', 'MANIOBRAS PARA LA INSTALACIÓN DE SUBESTACIONES MÓVILES', 8, 32, false, 'TECNICO'),
-('CDP0025', 'PLAN DE CONTINGENCIAS Y FALLAS MAYORES', 6, 10, false, 'TECNICO'),
-('CDP0023', 'PODA EN BAJA Y MEDIA TENSIÓN', 8, 8, false, 'TECNICO'),
-('CDP0022', 'PROCEDIMIENTOS DE SEGURIDAD DEL SISTEMA INTEGRAL DE GESTIÓN', 4, 4, false, 'TECNICO'),
-('CDP0021', 'TOMA DE DECISIONES', 4, 4, false, 'TECNICO'),
-('CDP0020', 'TRABAJOS EN ALTURAS, ACTIVIDADES QUE SALVAN VIDAS Y AISLADO SOBRE AISLADO', 16, 32, false, 'TECNICO'),
-('CDP0018', 'USO Y CUIDADOS EN EL USO DEL ROMPECARGAS', 3, 5, false, 'TECNICO'),
-('CDM0042', 'CALIBRACION DE MEDIDORES EN LABORATORIO', 12, 4, false, 'ESPECIALIZADO'),
-('CDM0114', 'CURSO NACIONAL MEDICIÓN CONEXIONES Y SERVICIOS', 308, 132, false, 'ESPECIALIZADO'),
-('CDM0093', 'DETECCIÓN DE FALLAS DE MEDICIÓN, FACTURACIÓN Y USOS ILÍCITOS', 5, 3, false, 'TECNICO'),
-('CDM0079', 'ELECTRICIDAD APLICADA A LA MEDICIÓN I', 7, 17, false, 'TECNICO'),
-('CDM0112', 'EQUIPOS DE INSPECCIÓN Y PRUEBA I', 8, 8, false, 'TECNICO'),
-('CDM0097', 'ESPECIFICACIONES DE MEDICIÓN', 8, 8, false, 'TECNICO'),
-('CDM0085', 'ESPECIFICACIONES DE MEDICIÓN I', 8, 8, false, 'TECNICO'),
-('CDM0107', 'FUENTES DE ENERGÍA DISTRIBUÍDA', 8, 0, false, 'TECNICO'),
-('CDM0100', 'IDENTIFICACIÓN DE EQUIPOS ELÉCTRICOS', 8, 8, false, 'TECNICO'),
-('CDM0087', 'INSPECCIÓN Y MANTENIMIENTO A REDES ENERGIZADAS', 20, 20, false, 'ADMINISTRATIVO'),
-('CDM0098', 'INTERPRETACIÓN DE DIAGRAMAS UNIFILARES', 8, 8, false, 'TECNICO'),
-('CDM0104', 'INTRODUCCIÓN A LA CONFIGURACIÓN DE PARAMETROS A MEDIDORES', 4, 0, false, 'TECNICO'),
-('CDM0073', 'MANEJO DE EQUIPO HIDRÁULICO Y FUNCIONAMIENTO', 12, 12, false, 'TECNICO'),
-('CDM0074', 'MANIOBRA DE HOMBRE SOLO PARA LA ATENCIÓN DE MANIOBRAS DE BAJA TENSIÓN EN ACOMETIDAS', 20, 20, false, 'ADMINISTRATIVO'),
-('CDM0095', 'MANIOBRA DE HOMBRE SOLO PARA LA ATENCIÓN DE REPOSICIÓN DE LINEAS EN BAJA Y MEDIA TENSIÓN DESENERGIZADAS', 32, 8, false, 'ADMINISTRATIVO'),
-('CDM0103', 'MEDIDORES DE ENERGÍA I', 8, 0, false, 'TECNICO'),
-('CDM0109', 'NORMAS DE DISTRIBUCIÓN AÉREAS I', 6, 0, false, 'TECNICO'),
-('CDM0108', 'NORMAS DE DISTRIBUCIÓN SUBETERRANEAS I', 6, 0, false, 'TECNICO'),
-('CDM0077', 'OPERACIÓN DEL SISTEMA DE CONTROL Y ADMINISTRACIÓN DE MEDIDORES Y SELLOS (SIAMED/SAS) I', 8, 8, false, 'ESPECIALIZADO'),
-('CDM0092', 'ORIENTACIÓN Y REQUISITOS PREVIOS A LA CONTRATACIÓN', 3, 5, false, 'TECNICO'),
-('CDM0102', 'PROCEDIMIENTO PARA LA ATENCIÓN DE SOLICITUDES DE SERVICIO DE ENERGÍA ELÉCTRICA Y NORMATIVIDAD APLICABLE I', 4, 4, false, 'TECNICO'),
-('CDM0081', 'PRUEBAS DE RELACIÓN DE TRANSFORMACIÓN, AISLAMIENTO Y POLARIDAD A TRANSFORMADORES DE INSTRUMENTOS I', 7, 9, false, 'ADMINISTRATIVO'),
-('CDM0110', 'PRUEBAS DE SUMINISTRO MEDIDOS EN BAJA TENSIÓN', 8, 16, false, 'TECNICO'),
-('CDM0105', 'PRUEBAS FUNCIONALES A MEDIDORES ELECTRÓNICOS DE AUTOGESTION', 8, 0, false, 'TECNICO'),
-('CDM0113', 'RESCATE DE LINIERO ACCIDENTADO', 0, 16, false, 'TECNICO'),
-('CDM0106', 'SISTEMAS DE MEDICIÓN DE INFRAESTRUCTURA AVANZADA I', 8, 0, false, 'TECNICO'),
-('CDM0101', 'TARIFAS ELÉCTRICAS II', 4, 10, false, 'TECNICO'),
-('CDM0054', 'TOMA DE LECTURA', 3, 9, false, 'ADMINISTRATIVO'),
-('CDM0111', 'TRABAJO DE CONEXIÓN DE EQUIPOS DE MEDICIÓN MEDIDOS EN BAJA Y MEDIA TENSIÓN', 8, 16, false, 'TECNICO'),
-('CDM0057', 'TRABAJO EN ALTURAS', 0, 40, false, 'ADMINISTRATIVO'),
-('CDM0099', 'TRABAJOS EN ESPACIOS CONFINADOS', 5, 11, false, 'TECNICO'),
-('CDM0076', 'TRANSFORMADORES DE DISTRIBUCION', 16, 0, false, 'ESPECIALIZADO'),
-('CDM0083', 'TRANSFORMADORES DE MEDIDA', 16, 0, false, 'ESPECIALIZADO'),
-('CGA0012', 'DESARROLLO DE PROYECTOS EN EL AMBITO AMBIENTAL', 8, 32, false, 'ESPECIALIZADO'),
-('CGA0006', 'GESTION AMBIENTAL', 0, 40, false, 'ADMINISTRATIVO'),
-('CGY0277', 'IMPACTO Y CULTURA AMBIENTAL', 0, 20, false, 'ADMINISTRATIVO'),
-('CGA0008', 'INGENIERIA AMBIENTAL MODULO I (PROB. AMBIENTAL, PRINCIPIOS DE ECOLOGIA)', 8, 32, false, 'ESPECIALIZADO'),
-('CGA0009', 'INGENIERIA AMBIENTAL MODULO II (BASES TECNICAS, MICROBIOLOGIA, TOXICOLOGIA, PROCESO Y OPERACIONES UNITARIAS', 8, 32, false, 'ESPECIALIZADO'),
-('CGA0010', 'INGENIERIA AMBIENTAL MODULO III (AIRE, CONTROL DE PARTICULAS, COMBUSTION, AGUA QUIMICA BASICA)', 8, 32, false, 'ESPECIALIZADO'),
-('CGA0011', 'INGENIERIA AMBIENTAL MODULO IV (TRATAMIENTO DE AGUAS RESIDUALES)', 8, 32, false, 'ESPECIALIZADO'),
-('CGA0014', 'INTRODUCCIÓN A LA LEGISLACIÓN AMBIENTAL EN EL SECTOR ELÉCTRICO', 0, 40, false, 'ADMINISTRATIVO'),
-('CGA0022', 'MANEJO Y DISPOSICIÓN DE RESIDUOS', 0, 20, false, 'TECNICO'),
-('CGY0004', 'SENSIBILIZACIÓN AMBIENTAL', 8, 32, false, 'ADMINISTRATIVO'),
-('CGY0052', 'AHORRO DE ENERGÍA EN LOS ESPACIOS FAMILIAR Y LABORAL', 0, 40, false, 'ESPECIALIZADO'),
-('CGY0134', 'ALUMBRADO Y ESTUDIO DE ILUMINACION', 0, 30, false, 'ADMINISTRATIVO'),
-('CGY0011', 'ELECTRICIDAD BÁSICA', 0, 40, false, 'ADMINISTRATIVO'),
-('CGE0136', 'ELECTRICIDAD BÁSICA PARA MANTENIMIENTO ELÉCTRICO', 20, 20, false, 'ESPECIALIZADO'),
-('CGE0001', 'ELECTRÓNICA DE POTENCIA', 24, 16, false, 'TECNICO'),
-('CGE0117', 'FILOSOFIA DE PROTECCIONES A EQUIPO ELÉCTRICO', 24, 16, false, 'ESPECIALIZADO'),
-('CGE0105', 'FILOSOFIA Y PRINCIPIOS BASICOS DE PROTECCIONES MODULO 1', 28, 12, false, 'TECNICO'),
-('CGE0106', 'FILOSOFIA Y PRINCIPIOS BASICOS DE PROTECCIONES MODULO 2', 28, 12, false, 'TECNICO'),
-('CGY0258', 'FUNDAMENTOS DE FILOSOFIA DE PROTECCIONES A EQUIPO ELÉCTRICO', 20, 0, false, 'TECNICO'),
-('CGY0252', 'FUNDAMENTOS PARA REPARACIÓN DE COJINETES', 20, 0, false, 'TECNICO'),
-('CGY0175', 'INSTALACIONES ELECTRICAS RESIDENCIALES E INDUSTRIALES', 36, 4, false, 'ADMINISTRATIVO'),
-('CGY0072', 'INTERPRETACION DE DIAGRAMAS UNIFILARES SIMPLIFICADOS DE SUBESTACIONES', 32, 8, false, 'TECNICO'),
-('CGE0092', 'INTERPRETACIÓN DE ESQUEMAS DE CONTROL ELÉCTRICO', 20, 20, false, 'TECNICO'),
-('CGE0124', 'INTRODUCCIÓN A LOS ARRANCADORES ELÉCTRICOS PARA MOTORES DE C.A.', 36, 4, false, 'TECNICO'),
-('CGE0019', 'LUBRICACIÓN DE RODAMIENTOS', 32, 8, false, 'TECNICO'),
-('CGE0010', 'MANEJO Y USO DEL EQUIPO DE PRUEBA MARCA DOBLE ENGINEERING MODELO M-4000', 32, 8, false, 'TECNICO'),
-('CGE0028', 'MANTENIMIENTO A INTERRUPTORES DE BAJA TENSIÓN', 32, 8, false, 'TECNICO'),
-('CGE0075', 'MANTENIMIENTO BASADO EN CONDICION A GENERADORES ELECTRICOS', 24, 16, false, 'ESPECIALIZADO'),
-('CGE0083', 'MANTENIMIENTO BASADO EN CONDICIÓN A MOTORES ELÉCTRICOS', 24, 16, false, 'ESPECIALIZADO'),
-('CGE0074', 'MANTENIMIENTO BASADO EN CONDICION A TRANSFORMADORES DE POTENCIA', 24, 16, false, 'ESPECIALIZADO'),
-('CGE0021', 'MANTENIMIENTO PREDICTIVO MEDIANTE TERMOGRAFÍA', 12, 28, false, 'ESPECIALIZADO'),
-('CGE0025', 'MANTENIMIENTO Y PRUEBAS A INTERRUPTORES', 40, 40, false, 'ESPECIALIZADO'),
-('CGE0027', 'MANTENIMIENTO Y PRUEBAS A ROTORES DE TURBOGENERADORES', 24, 16, false, 'ESPECIALIZADO'),
-('CGE0017', 'MANTENIMIENTO Y PRUEBAS A TRANSFORMADORES', 40, 40, false, 'ESPECIALIZADO'),
-('CGE0004', 'MANTENIMIENTO Y PRUEBAS DE GENERADORES ELÉCTRICOS DE CENTRALES TERMOELÉCTRICAS', 64, 16, false, 'TECNICO'),
-('CGE0006', 'MANTENIMIENTO Y PRUEBAS DE MOTORES ELÉCTRICOS', 48, 32, false, 'TECNICO'),
-('CGY0260', 'MERCADO ELECTRICO MAYORISTA Y BASES DEL MEM', 20, 0, false, 'ESPECIALIZADO'),
-('CGE0119', 'MOTORES ELECTRICOS', 32, 8, false, 'TECNICO'),
-('CGY0259', 'NORMATIVIDAD DEL SECTOR ELECTRICO: LEY IND. ELECTRICA - REGLAMENTO - LEY DE CFE', 0, 10, false, 'ESPECIALIZADO'),
-('CGE0109', 'OPERACIÓN Y MANTENIMIENTO A EQUIPOS DE AIRE ACONDICIONADO', 24, 16, false, 'TECNICO'),
-('CGE0080', 'OPERACIÓN Y MANTENIMIENTO DE ARRANCADORES MAGNÉTICOS Y ELECTRÓNICOS', 20, 20, false, 'TECNICO'),
-('CGE0002', 'OPERACIÓN Y MANTENIMIENTO DE BANCO DE BATERÍAS Y CARGADORES', 24, 16, false, 'TECNICO'),
-('CGE0089', 'OPERACIÓN, MANTENIMIENTO Y PRUEBAS DE GENERADORES ELÉCTRICOS', 64, 16, false, 'ESPECIALIZADO'),
-('CGE0118', 'PRINCIPIOS DE ELECTRICIDAD', 20, 0, false, 'TECNICO'),
-('CGE0126', 'PRINCIPIOS DE INSTALACIONES ELECTRICAS', 3, 27, false, 'ADMINISTRATIVO'),
-('CGY0243', 'PRINCIPIOS DE OPERACIÓN Y MANTENIMIENTO A MOTORES ELÉCTRICOS', 20, 0, false, 'TECNICO'),
-('CGE0095', 'PROTECCIONES A GENERADOR ELÉCTRICO', 24, 16, false, 'ESPECIALIZADO'),
-('CGE0087', 'PRUEBAS PRIMARIAS A EQUIPO ELÉCTRICO (MANEJO DEL EQUIPO DE PRUEBA M-4000)', 48, 32, false, 'ESPECIALIZADO'),
-('CGE0008', 'REDES DE TIERRAS', 32, 8, false, 'TECNICO'),
-('CGE0003', 'REFRIGERACIÓN PARA TÉCNICOS', 24, 16, false, 'TECNICO'),
-('CGY0055', 'REGULADORES AUTOMÁTICOS DE VOLTAJE', 40, 0, false, 'ESPECIALIZADO'),
-('CGE0090', 'TÉCNICAS DE PRUEBA A EQUIPO ELÉCTRICO PRIMARIO', 32, 48, false, 'ESPECIALIZADO'),
-('CGE0084', 'TERMOGRAFÍA APLICADA A EQUIPOS ELÉCTRICOS', 16, 24, false, 'ESPECIALIZADO'),
-('CGE0007', 'TERMOGRAFÍA I (FUNDAMENTOS Y ANÁLISIS CUALITATIVO)', 0, 40, false, 'TECNICO'),
-('CGE0103', 'TERMOGRAFIA INFRARROJA', 16, 24, false, 'ESPECIALIZADO'),
-('CGE0115', 'TIPOS DE ARRANCADORES PARA MOTORES ELECTRICOS DE C.A.', 0, 40, false, 'TECNICO'),
-('CGY0033', 'CONOCIMIENTOS BÁSICOS PARA AYUDANTE TÉCNICO INSTRUMENTISTA', 0, 40, false, 'TECNICO'),
-('CG10061', 'CONTROL APLICADO, ANALÓGICO Y DIGITAL DE CENTRALES TERMOELÉCTRICAS', 8, 32, false, 'TECNICO'),
-('CG10046', 'CONTROL DISTRIBUIDO (OVATION EMERSON)', 8, 32, false, 'TECNICO'),
-('CG10025', 'CONTROL Y PROTECCIÓN DE TURBINAS DE GAS', 8, 32, false, 'ESPECIALIZADO'),
-('CG10083', 'CONTROLADORES DE AUTOMATIZACIÓN PROGRAMABLES MI: FUNDAMENTOS DE PROGRAMACIÓN', 12, 28, false, 'TECNICO'),
-('CGY0068', 'CONTROLADORES LOGICOS PROGRAMABLES', 8, 32, false, 'TECNICO'),
-('CG10026', 'CONTROLADORES LÓGICOS PROGRAMABLES (AVANZADO)', 20, 20, false, 'TECNICO'),
-('CG10016', 'CONTROLADORES LÓGICOS PROGRAMABLES (BÁSICO)', 20, 20, false, 'ESPECIALIZADO'),
-('CGY0206', 'CONTROLADORES LOGICOS PROGRAMABLES (LOGO 8)', 0, 20, false, 'TECNICO'),
-('CGY0056', 'CONTROLES LÓGICOS Y ANALÓGICOS APLICADOS', 0, 40, false, 'ESPECIALIZADO'),
-('CG10057', 'DIASYS NETMATION DE MHI (CONTROL ELECTROHIDRAULICO)', 20, 20, false, 'ESPECIALIZADO'),
-('CGY0070', 'ELECTRÓNICA ANALÓGICA BÁSICA', 0, 20, false, 'TECNICO'),
-('CG10001', 'ELECTRÓNICA PARA INSTRUMENTISTAS MÓDULO I', 40, 40, false, 'ESPECIALIZADO'),
-('CG10074', 'FORMACIÓN DE INSTRUMENTISTAS MODULO I (FUNDAMENTOS DE MEDICIÓN, PRESIÓN & NIVEL)', 40, 40, false, 'ADMINISTRATIVO'),
-('CG10075', 'FORMACIÓN DE INSTRUMENTISTAS MODULO II (TEMPERATURA & FLUJO)', 40, 40, false, 'ADMINISTRATIVO'),
-('CG10076', 'FORMACIÓN DE INSTRUMENTISTAS MODULO III (ELEMENTOS FINALES DE CONTROL & CONTROL AUTOMÁTICO)', 48, 32, false, 'ESPECIALIZADO'),
-('CG10077', 'FORMACIÓN DE INSTRUMENTISTAS MODULO IV (SINTONIZACIÓN DE CONTROLES DE PROCESO & SUPERVISORIO DE TURBINA)', 24, 56, false, 'ADMINISTRATIVO'),
-('CG10106', 'FUNDAMENTOS DE DOMÓTICA Y COMUNICACIONES INALÁMBRICAS', 0, 40, false, 'TECNICO'),
-('CGY0111', 'FUNDAMENTOS DE ELECTRÓNICA DIGITAL I', 25, 0, false, 'ADMINISTRATIVO'),
-('CG10099', 'FUNDAMENTOS DE INSTRUMENTACIÓN ANALÍTICA', 0, 40, false, 'TECNICO'),
-('CG10096', 'FUNDAMENTOS DE LA VARIABLE PRESIÓN', 40, 0, false, 'TECNICO'),
-('CG10068', 'INSTRUMENTACIÓN CONFIGURABLE', 24, 16, false, 'ESPECIALIZADO'),
-('CG10072', 'INSTRUMENTACIÓN INTELIGENTE (CONFIGURACION)', 20, 20, false, 'ESPECIALIZADO'),
-('CG10091', 'INSTRUMENTACIÓN MI: FUNCIONES, FUNDAMENTOS, MEDICIÓN, DTI''S Y HOJAS DE LAZO', 16, 24, false, 'ESPECIALIZADO'),
-('CG10065', 'INSTRUMENTACIÓN MII: VARIABLES PRESIÓN, TEMPERATURA, NIVEL Y ANALÍTICAS', 0, 40, false, 'TECNICO'),
-('CG10109', 'INSTRUMENTACIÓN MIII: MEDICIÓN DE FLUJO', 0, 40, false, 'TECNICO'),
-('CG10110', 'INSTRUMENTACIÓN MIV: TEORÍA DE CONTROL', 40, 0, false, 'TECNICO'),
-('CGI0111', 'INSTRUMENTACIÓN MV: REGULACIÓN PRIMARIA Y SECUNDARIA', 40, 0, false, 'TECNICO'),
-('CG10027', 'INSTRUMENTACIÓN VIRTUAL CON LABVIEW', 24, 16, false, 'ESPECIALIZADO'),
-('CGY0044', 'INTERPRETACIÓN DE DIAGRAMAS DE TUBERÍA E INSTRUMENTACIÓN', 0, 24, false, 'ESPECIALIZADO'),
-('CGY0183', 'INTRODUCCIÓN A LA BITÁCORA ELECTRÓNICA', 10, 10, false, 'ADMINISTRATIVO'),
-('CG10059', 'MARK VI DE GE (CONTROL DISTRIBUIDO)', 30, 10, false, 'TECNICO'),
-('CG10043', 'METROLOGÍA', 16, 24, false, 'ESPECIALIZADO'),
-('CG10088', 'METROLOGÍA I (TEMPERATURA)', 20, 20, false, 'ESPECIALIZADO'),
-('CG10089', 'METROLOGÍA II (PRESIÓN)', 20, 20, false, 'ESPECIALIZADO'),
-('CG10060', 'OVATION DE EMERSON (CONTROL DISTRIBUIDO)', 20, 20, false, 'ESPECIALIZADO'),
-('CG10108', 'PRINCIPIOS DE MATLAB APLICADO A CONTROL', 40, 0, false, 'TECNICO'),
-('CG10090', 'PROGRAMACIÓN DE CONTROLADORES LÓGICOS PROGRAMABLES', 16, 24, false, 'ESPECIALIZADO'),
-('CG10086', 'PROTOCOLOS DE COMUNICACIÓN INDUSTRIAL (HART, PROFIBUS, DNP3, MODBUS)', 24, 16, false, 'ESPECIALIZADO'),
-('CG10071', 'PROTOCOLOS DE COMUNICACIÓN INDUSTRIAL (PROTOCOLO ETHERNET TCP/IP Y PROFINET)', 24, 16, false, 'ESPECIALIZADO'),
-('CG10073', 'SISTEMA DE CONTROL ELECTROHIDRÁULICO Υ PROTECCIONES DEL TURBOGENERADOR', 32, 8, false, 'ESPECIALIZADO'),
-('CG10041', 'SUPERVISORIO DE TURBINA', 30, 10, false, 'ESPECIALIZADO'),
-('CG10058', 'T3000 DE SIEMENS (CONTROL DISTRIBUIDO)', 20, 20, false, 'ESPECIALIZADO'),
-('CG10029', 'TALLER DE MANTENIMIENTO A VÁLVULAS DE CONTROL', 20, 20, false, 'ESPECIALIZADO'),
-('CGM0150', 'AISLAMIENTO TÉRMICO PARA CENTRALES GENERADORAS', 36, 4, false, 'ESPECIALIZADO'),
-('CGM0042', 'ALINEACIÓN DE EJES DE MAQUINAS', 20, 20, false, 'ESPECIALIZADO'),
-('CGY0284', 'ANÁLISIS DE DESEMPEÑO DE UNA BOMBA CENTRIFUGA', 32, 0, false, 'ESPECIALIZADO'),
-('CGY0020', 'ANÁLISIS DEL DESEMPEÑO DE UNA TURBINA DE VAPOR', 40, 0, false, 'ESPECIALIZADO'),
-('CGY0023', 'ANÁLISIS DEL DESEMPEÑO DE UN AEROCONDENSADOR', 0, 24, false, 'ESPECIALIZADO'),
-('CGY0019', 'ANÁLISIS DEL DESEMPEÑO DE UN CALENTADOR DE AGUA TIPO SUPERFICIE', 24, 0, false, 'ESPECIALIZADO'),
-('CGY0018', 'ANÁLISIS DEL DESEMPEÑO DE UN CALENTADOR REGENERATIVO DE AIRE', 0, 24, false, 'ESPECIALIZADO'),
-('CGY0024', 'ANÁLISIS DEL DESEMPEÑO DE UN COMPRESOR AXIAL', 0, 24, false, 'ESPECIALIZADO'),
-('CGY0025', 'ANÁLISIS DEL DESEMPEÑO DE UN CONDENSADOR PRINCIPAL', 24, 0, false, 'ESPECIALIZADO'),
-('CGY0021', 'ANÁLISIS DEL DESEMPEÑO DE UN DEAREADOR', 0, 24, false, 'ESPECIALIZADO'),
-('CGY0026', 'ANÁLISIS DEL DESEMPEÑO DE UN GENERADOR DE VAPOR', 40, 0, false, 'ESPECIALIZADO'),
-('CGY0029', 'ANÁLISIS DEL DESEMPEÑO DE UN RECUPERADOR DE CALOR', 24, 0, false, 'ESPECIALIZADO'),
-('CGY0017', 'ANÁLISIS DEL DESEMPEÑO DE UNA TURBINA DE GAS', 24, 0, false, 'ESPECIALIZADO'),
-('CGM0099', 'ANALISIS DINÁMICO I CON CERTIFICACIÓN', 32, 8, false, 'ESPECIALIZADO'),
-('CGM0098', 'ANALISIS DINAMICO II CON CERTIFICACIÓN', 36, 4, false, 'ESPECIALIZADO'),
-('CGM0120', 'BALANCEO DINÁMICO DE TURBOMAQUINARIA', 28, 12, false, 'ESPECIALIZADO'),
-('CGM0062', 'EMPAQUETADURAS Y SELLOS MECANICOS', 20, 20, false, 'ESPECIALIZADO'),
-('CGM0004', 'EXAMENES NO DESTRUCTIVOS', 40, 40, false, 'ESPECIALIZADO'),
-('CGM0129', 'EXAMENES NO DESTRUCTIVOS INSPECCIÓN VISUAL, LÍQUIDOS PENETRANTES Y PARTÍCULAS MAGNÉTICAS', 20, 20, false, 'ESPECIALIZADO'),
-('CGY0041', 'FUNDAMENTOS DE ALINEACIÓN DE EJES EN EQUIPOS ROTATORIOS', 40, 0, false, 'TECNICO'),
-('CGM0125', 'FUNDAMENTOS DE CORROSIÓN', 24, 16, false, 'ESPECIALIZADO'),
-('CGY0184', 'FUNDAMENTOS DE LOS RECUBRIMIENTOS ANTICORROSIVOS', 20, 0, false, 'TECNICO'),
-('CGY0199', 'FUNDAMENTOS DE METROLOGIA DIMENCIONAL', 40, 0, false, 'TECNICO'),
-('CGY0245', 'FUNDAMENTOS DE SOLDADURA SMAW Y GTAW', 20, 20, false, 'TECNICO'),
-('CGY0073', 'FUNDAMENTOS DE TERMOGRAFIA', 20, 0, false, 'ADMINISTRATIVO'),
-('CGY0197', 'FUNDAMENTOS DE VENTILADORES', 40, 0, false, 'ADMINISTRATIVO'),
-('CGM0117', 'INSPECCIÓN Y SUPERVISIÓN DE SOLDADURAS APLICADA A RECUPERADORES DE CALOR Y GENERADORES DE VAPOR', 8, 32, false, 'ESPECIALIZADO'),
-('CGY0061', 'INTRODUCCIÓN A EMPAQUETADURAS Y SELLOS MECÁNICOS', 2, 18, false, 'ADMINISTRATIVO'),
-('CGY0182', 'INTRODUCCION A EXAMENES NO DESTRUCTIVOS', 0, 20, false, 'ESPECIALIZADO'),
-('CGY0254', 'INTRODUCCION A LOS TRATAMIENTOS TÉRMICOS Y METALURGIA', 20, 0, false, 'TECNICO'),
-('CGY0076', 'INTRODUCCIÓN AL ANÁLISIS DINÁMICO', 40, 0, false, 'ESPECIALIZADO'),
-('CGM0151', 'LAMINADOR FORRADOR', 20, 20, false, 'TECNICO'),
-('CGM0079', 'MANTENIMIENTO A REDUCTORES DE VELOCIDAD', 16, 24, false, 'ESPECIALIZADO'),
-('CGM0009', 'MANTENIMIENTO A VÁLVULAS', 20, 20, false, 'ESPECIALIZADO'),
-('CGM0101', 'MANTENIMIENTO A VÁLVULAS DE SEGURIDAD', 24, 16, false, 'ESPECIALIZADO'),
-('CGM0112', 'MANTENIMIENTO BASADO EN CONDICIÓN ANÁLISIS DE ACEITES I', 24, 16, false, 'ESPECIALIZADO'),
-('CGM0115', 'MANTENIMIENTO BASADO EN CONDICIÓN ANÁLISIS DE ACEITES II', 24, 16, false, 'ESPECIALIZADO'),
-('CGM0113', 'MANTENIMIENTO BASADO EN CONDICIÓN ANÁLISIS DE VIBRACIONES I', 48, 32, false, 'ESPECIALIZADO'),
-('CGM0116', 'MANTENIMIENTO BASADO EN CONDICIÓN ANÁLISIS DE VIBRACIONES II', 48, 32, false, 'ESPECIALIZADO'),
-('CGM0154', 'MANTENIMIENTO BASADO EN CONDICIÓN PARA LA EVALUACIÓN DEL DESEMPEÑO DE EQUIPOS', 40, 40, false, 'ESPECIALIZADO'),
-('CGM0111', 'MANTENIMIENTO BASADO EN CONDICIÓN TERMOGRAFÍA I', 16, 24, false, 'ESPECIALIZADO'),
-('CGM0114', 'MANTENIMIENTO BASADO EN CONDICIÓN TERMOGRAFÍA II', 24, 16, false, 'ESPECIALIZADO'),
-('CGM0097', 'MANTENIMIENTO DE AIRES ACONDICIONADOS MINI SPLIT', 12, 28, false, 'ESPECIALIZADO'),
-('CGM0002', 'MANTENIMIENTO DE BOMBAS', 40, 40, false, 'ESPECIALIZADO'),
-('CGM0003', 'MANTENIMIENTO DE COMPRESORES', 40, 40, false, 'ESPECIALIZADO'),
-('CGM0095', 'MANTENIMIENTO DE TURBINAS A GAS I (TIPOS DE MANTENIMIENTO, COMPONENTES Y FALLAS)', 36, 4, false, 'ESPECIALIZADO'),
-('CGM0096', 'MANTENIMIENTO DE TURBINAS A GAS II (DESENSAMBLE, MANTENIMIENTO Y ENSAMBLE DE UNA TURBINA)', 4, 36, false, 'ESPECIALIZADO'),
-('CGM0005', 'MECÁNICO APARATISTA (TORNOS)', 24, 56, false, 'TECNICO'),
-('CGM0014', 'MECÁNICO APARATISTA (FRESADORAS)', 24, 56, false, 'TECNICO'),
-('CGM0094', 'OPERADOR DE GRUA HIAB.', 20, 20, false, 'ADMINISTRATIVO'),
-('CGM0033', 'PAILERÍA I', 24, 56, false, 'ESPECIALIZADO'),
-('CGM0136', 'PAILERIA II', 40, 40, false, 'ESPECIALIZADO'),
-('CGM0011', 'PLANEACIÓN Y CONTROL DE MANTENIMIENTO', 28, 12, false, 'ESPECIALIZADO'),
-('CGM0152', 'PLOMERIA', 20, 20, false, 'TECNICO'),
-('CGM0124', 'RECUBRIMIENTOS ANTICORROSIVOS (SECCIÓN E INSPECCIÓN))', 24, 16, false, 'ESPECIALIZADO'),
-('CGM0070', 'REHABILITACION Y MANTENIMIENTO DE TURBINAS DE VAPOR', 56, 24, false, 'ESPECIALIZADO'),
-('CGM0043', 'RODAMIENTOS Y CHUMACERAS PLANAS', 20, 20, false, 'ESPECIALIZADO'),
-('CGM0015', 'SOLDADURAI-PROCESO DE SOLDADURA SMAW Y OXIACETILENO', 24, 56, false, 'ESPECIALIZADO'),
-('CGM0016', 'SOLDADURA II - PROCESO DE SOLDADURA MIG Y TIG', 24, 56, false, 'ESPECIALIZADO'),
-('CGM0121', 'SOLDADURA III - PROCESO GTAW Y SMAW APLICADOS A FLUXERIA', 40, 40, false, 'ESPECIALIZADO'),
-('CGM0017', 'TALLER DE TURBINAS DE VAPOR I: PRINCIPIOS DE FUNCIONAMIENTO', 32, 8, false, 'ESPECIALIZADO'),
-('CGM0018', 'TALLER DE TURBINAS DE VAPOR II: COMPONENTES DE TURBINAS DE VAPOR', 32, 8, false, 'ESPECIALIZADO'),
-('CGM0019', 'TALLER DE TURBINAS DE VAPOR III: ALINEAMIENTO DE COMPONENTE Y TURBOGRUPO', 32, 8, false, 'ESPECIALIZADO'),
-('CG00226', 'ANÁLISIS DE FALLAS - CICLO COMBINADO (450 MW)', 20, 60, false, 'SIMULADOR'),
-('CGO0198', 'ANÁLISIS DE FALLAS - HIDROELECTRICA (300 MW)', 20, 60, false, 'SIMULADOR'),
-('CG00191', 'ANÁLISIS DE FALLAS - TURBO GAS (150MW)', 20, 60, false, 'SIMULADOR'),
-('CGO0203', 'ANÁLISIS DE FALLAS DEL GENERADOR DE VAPOR - CARBON (350MW)', 20, 60, false, 'SIMULADOR'),
-('CGO0202', 'ANÁLISIS DE FALLAS DEL GENERADOR DE VAPOR - PANTALLAS 2 (350MW)', 20, 60, false, 'SIMULADOR'),
-('CGO0237', 'ANÁLISIS DE FALLAS DEL GENERADOR DE VAPOR - PANTALLAS 3 (330 MW)', 20, 60, false, 'SIMULADOR'),
-('CGO0207', 'ANÁLISIS DE FALLAS DEL TURBOGENERADOR - CARBON (350MW)', 20, 60, false, 'SIMULADOR'),
-('CG00206', 'ANÁLISIS DE FALLAS DEL TURBOGENERADOR - PANTALLAS 2 (350MW)', 20, 60, false, 'SIMULADOR'),
-('CG00238', 'ANÁLISIS DE FALLAS DEL TURBOGENERADOR - PANTALLAS 3 (330 MW)', 20, 60, false, 'SIMULADOR'),
-('CGY0127', 'ANÁLISIS DE OPERACIÓN DE CCC Y TURBOGAS', 32, 8, false, 'TECNICO'),
-('CGY0165', 'ANÁLISIS DEL DESEMPEÑO DE UNA TORRE DE ENFRIAMIENTO', 24, 0, false, 'ESPECIALIZADO'),
-('CGY0264', 'ANÁLISIS DINÁMICO PARA OPERADORES', 24, 0, false, 'ESPECIALIZADO'),
-('CG00144', 'ANÁLISIS DINÁMICO PARA SUPERINTENDENTES DE TURNO, OPERADORES Y SUPERVISORES', 32, 8, false, 'ESPECIALIZADO'),
-('CG00008', 'ANÁLISIS Y RESULTADOS DE OPERACIÓN EN CENTRALES GENERADORAS MÓDULO I', 20, 20, false, 'TECNICO'),
-('CGO0013', 'ANÁLISIS Y RESULTADOS DE OPERACIÓN EN CENTRALES GENERADORAS MÓDULO II', 20, 20, false, 'TECNICO'),
-('CGY0207', 'ARRANQUE Y PARO DEL PROCESO HIDROELÉCTRICO EN MANUAL', 24, 0, false, 'ESPECIALIZADO'),
-('CG00278', 'BÁSICO DE ANÁLISIS Y RESULTADOS EN EL MERCADO ELÉCTRICO MAYORISTA (CENTRALES GENERADORAS)', 0, 40, false, 'ESPECIALIZADO'),
-('CGY0283', 'CAPACITACIÓN PARA OPERADORES DE CENTRAL EN EL SISTEMA RID', 16, 0, false, 'ESPECIALIZADO'),
-('CGY0266', 'CÓDIGO DE RED', 0, 10, false, 'TECNICO'),
-('CGO0333', 'CÓDIGO RED', 0, 40, false, 'ESPECIALIZADO'),
-('CGY0281', 'CONOCIMIENTOS TÉCNICOS EN LOS PROCESOS SUSTANTIVOS (GENERACIÓN, TRANSMISIÓN, DISTRIBUCIÓN)', 0, 20, false, 'TECNICO'),
-('CG00178', 'CONSUMO DE VIDA ÚTIL Y OPERACIÓN CICLICA - CARBON (350MW)', 20, 60, false, 'SIMULADOR'),
-('CGO0227', 'CONSUMO DE VIDA ÚTIL Y OPERACIÓN CICLICA - CICLO COMBINADO (450 MW)', 20, 60, false, 'SIMULADOR'),
-('CGO0170', 'CONSUMO DE VIDA ÚTIL Y OPERACIÓN CICLICA - PANTALLAS 2 (350MW)', 20, 60, false, 'SIMULADOR'),
-('CGO0240', 'CONSUMO DE VIDA ÚTIL Y OPERACIÓN CICLICA - PANTALLAS 3 (330 MW)', 20, 60, false, 'SIMULADOR'),
-('CGO0194', 'CONSUMO DE VIDA ÚTIL Y OPERACIÓN CICLICA - TURBO GAS (150MW)', 20, 60, false, 'SIMULADOR'),
-('CGO0367', 'CONTROL DISTRIBUIDO PARA SISTEMAS DE CONTROL (DYASIS Y OVATION)', 48, 32, false, 'SIMULADOR'),
-('CG00381', 'DIPLOMADO EN MANTENIMIENTO PREDICTIVO MÓDULO II (VIBRACIONES)', 40, 40, false, 'ESPECIALIZADO'),
-('CGO0382', 'DIPLOMADO EN MANTENIMIENTO PREDICTIVO MÓDULO III (ANÁLISIS DE ACEITE)', 20, 20, false, 'ESPECIALIZADO'),
-('CG00174', 'ENTRENAMIENTO INICIAL - CARBON (350MW)', 40, 120, false, 'SIMULADOR'),
-('CG00187', 'ENTRENAMIENTO INICIAL - CICLO COMBINADO (450 MW)', 120, 40, false, 'SIMULADOR'),
-('CG00387', 'ENTRENAMIENTO INICIAL GEOTERMOELÉCTRICA 110MW', 80, 0, false, 'SIMULADOR'),
-('CGO0197', 'ENTRENAMIENTO INICIAL - HIDROELECTRICA (300 MW)', 20, 60, false, 'SIMULADOR'),
-('CG00166', 'ENTRENAMIENTO INICIAL - PANTALLAS 2 (350MW)', 40, 120, false, 'SIMULADOR'),
-('CGO0297', 'ENTRENAMIENTO INICIAL - PANTALLAS 3 (330 MW)', 40, 120, false, 'SIMULADOR'),
-('CGO0190', 'ENTRENAMIENTO INICIAL - TURBO GAS (150MW)', 20, 60, false, 'SIMULADOR'),
-('CGO0288', 'FAMILIARIZACIÓN CON CENTRALES - CICLO COMBINADO (450 MW)', 20, 60, false, 'SIMULADOR'),
-('CGO0251', 'FAMILIARIZACIÓN CON CENTRALES - HIDROELECTRICA (300 MW)', 10, 30, false, 'SIMULADOR'),
-('CGO0286', 'FAMILIARIZACIÓN CON CENTRALES - PANTALLAS 2 (350MW)', 20, 60, false, 'SIMULADOR'),
-('CGO0398', 'FAMILIARIZACIÓN CON CENTRALES PANTALLAS 330 MW', 20, 60, false, 'SIMULADOR'),
-('CG00188', 'FAMILIARIZACIÓN CON CENTRALES-TURBO GAS (150MW)', 20, 60, false, 'ADMINISTRATIVO'),
-('CGO0279', 'FUNDAMENTOS DE TEORÍA DE CONTROL', 32, 8, false, 'TECNICO'),
-('CGY0285', 'GENERACIÓN DISTRIBUIDA (PANELES SOLARES)', 15, 5, false, 'ADMINISTRATIVO'),
-('CGY0105', 'GENERACION GEOTERMICA', 20, 0, false, 'ADMINISTRATIVO'),
-('CGO0376', 'INDUCCION AL PUESTO DE AUXILIAR DE SERVICIO (CHOFER)', 2, 18, false, 'TECNICO'),
-('CGY0286', 'INTRODUCCIÓN A CENTRALES DE CICLO COMBINADO', 18, 2, false, 'TECNICO'),
-('CGY0054', 'INTRODUCCIÓN A CENTRALES HIDROELECTRICAS', 20, 0, false, 'ADMINISTRATIVO'),
-('CGY0027', 'INTRODUCCIÓN A CENTRALES SUPERCRÍTICAS', 24, 0, false, 'ESPECIALIZADO'),
-('CGY0129', 'INTRODUCCIÓN A CENTRALES TERMOELECTRICAS', 0, 20, false, 'TECNICO'),
-('CGY0123', 'INTRODUCCIÓN A SISTEMAS FOTOVOLTAICOS INTERCONECTADOS A LA RED', 20, 0, false, 'TECNICO'),
-('CGY0090', 'INTRODUCCION AL AJUSTE DE COSTOS Y PRECIOS UNITARIOS', 12, 28, false, 'ADMINISTRATIVO'),
-('CGY0173', 'LEGISLACION EN MATERIA DE ENERGIAS RENOVABLES', 30, 0, false, 'ADMINISTRATIVO'),
-('CG00374', 'LICENCIAS INTERNAS DE CENTRALES GENERADORAS', 30, 10, false, 'ESPECIALIZADO'),
-('CG00280', 'MEJORA DE EFICIENCIA TÉRMICA EN CENTRALES GENERADORAS', 12, 28, false, 'ESPECIALIZADO'),
-('CG00143', 'METODOLOGÍA DE ANÁLISIS DE CAUSA RAİZ DE FALLAS EN GENERACIÓN', 20, 20, false, 'ESPECIALIZADO'),
-('CG00315', 'MÓDULO I MEM OPERATIVO: INTRODUCCIÓN', 8, 0, false, 'ESPECIALIZADO'),
-('CGO0316', 'MÓDULO II MEM OPERATIVO: MERCADO DE ENERGÍA PARA LA OPERACIÓN DE LAS UECS', 12, 0, false, 'TECNICO'),
-('CGO0399', 'PRIMEROS AUXILIOS DE C.F.E. NIVEL BÁSICO I', 0, 24, false, 'TECNICO'),
-('CGY0122', 'PRINCIPIOS DE SUSTENTABILIDAD ENERGÉTICA Y GENERACIÓN CON FUENTES RENOVABLES', 0, 20, false, 'TECNICO'),
-('CGY0282', 'PROCEDIMIENTO NORMATIVO N-2000-BO12 PARA LA DETERMINACIÓN Y GESTIÓN DE EVENTOS DE FALLA Y DECREMENTO POR CAUSAS EXTERNAS EN CENTRALES GENERADORAS', 16, 0, false, 'ESPECIALIZADO'),
-('CGY0265', 'PROCEDIMIENTO NORMATIVO PARA ELABORAR EL REPORTE DIARIO DE CENTRALES', 16, 0, false, 'ESPECIALIZADO'),
-('CGO0010', 'PROTECCIONES DEL TURBOGENERADOR EN CENTRALES GENERADORAS', 8, 32, false, 'TECNICO'),
-('CG00176', 'RÉGIMEN TÉRMICO - CARBON (350MW)', 20, 60, false, 'SIMULADOR'),
-('CGO0225', 'RÉGIMEN TÉRMICO - CICLO COMBINADO (450 MW)', 20, 60, false, 'SIMULADOR'),
-('CG00168', 'RÉGIMEN TÉRMICO - PANTALLAS 2 (350MW)', 20, 60, false, 'SIMULADOR'),
-('CGO0239', 'RÉGIMEN TÉRMICO - PANTALLAS 3 (330 MW)', 20, 60, false, 'SIMULADOR'),
-('CG00192', 'RÉGIMEN TÉRMICO - TURBO GAS (150MW)', 20, 60, false, 'SIMULADOR'),
-('CGY0198', 'SISTEMA FOTOVOLTAICO AISLADO', 24, 0, false, 'ESPECIALIZADO'),
-('CGO0330', 'SUPERINTENDENTES DE TURNO CARBON 350 MW', 120, 40, false, 'ADMINISTRATIVO'),
-('CGO0331', 'SUPERINTENDENTES DE TURNO CICLO COMBINADO (450 MW)', 120, 40, false, 'ADMINISTRATIVO'),
-('CGO0397', 'SUPERINTENDENTES DE TURNO PANTALLAS 330 MW', 120, 40, false, 'SIMULADOR'),
-('CGO0364', 'SUPERINTENDENTES DE TURNO PANTALLAS 350 MW', 120, 40, false, 'ADMINISTRATIVO'),
-('CGO0277', 'TERMODINÁMICA APLICADA EN CENTRALES DE GENERACIÓN-MOD. I CENTRALES CONVENCIONALES)', 0, 40, false, 'ESPECIALIZADO'),
-('CGO0276', 'TERMODINÁMICA APLICADA EN CENTRALES DE GENERACIÓN-MOD. II CENTRALES CICLO COMBINADO', 0, 40, false, 'ESPECIALIZADO'),
-('CGY0046', 'TERMODINÁMICA DEL VAPOR', 0, 24, false, 'ESPECIALIZADO'),
-('CGY0167', 'TRÁMITE DE LICENCIAS', 24, 0, false, 'ESPECIALIZADO'),
-('CGQ0018', 'ALMACENAMIENTO DE UNIDADES DE GENERACIÓN', 36, 4, false, 'ESPECIALIZADO'),
-('CGQ0005', 'ANÁLISIS DE ACEITES LUBRICANTES Y COMBUSTIBLES', 16, 24, false, 'ESPECIALIZADO'),
-('CGQ0031', 'ANÁLISIS DE FALLAS DE TUBERÍAS DE RECUPERADORES DE CALOR', 16, 24, false, 'ESPECIALIZADO'),
-('CGQ0001', 'ANÁLISIS DE FALLAS DE TUBERÍAS DEL GENERADOR DE VAPOR', 12, 28, false, 'ESPECIALIZADO'),
-('CGQ0034', 'BÁSICO DE ANÁLISIS DE FALLA EN TUBERÍAS', 0, 20, false, 'TECNICO'),
-('CGY0124', 'INTRODUCCION A INGENIERIA QUIMICA APLICADA A LA GENERACIÓN ELÉCTRICA MÓDULO I', 0, 40, false, 'TECNICO'),
-('CGY0125', 'INTRODUCCION A INGENIERIA QUIMICA APLICADA A LA GENERACIÓN ELÉCTRICA MÓDULO II', 0, 40, false, 'TECNICO'),
-('CGY0126', 'INTRODUCCION A INGENIERIA QUIMICA APLICADA A LA GENERACIÓN ELÉCTRICA MÓDULO III', 0, 40, false, 'TECNICO'),
-('CGY0160', 'INTRODUCCIÓN A LA PREPARACIÓN DE REACTIVOS Y MANEJO DE SUSTANCIAS QUÍMICAS', 0, 20, false, 'TECNICO'),
-('CGY0031', 'INTRODUCCION A TRATAMIENTO DE AGUAS NEGRAS', 0, 40, false, 'TECNICO'),
-('CGQ0002', 'LIMPIEZAS QUÍMICAS DEL GENERADOR DE VAPOR Y RECUPERADORES DE CALOR', 12, 28, false, 'ESPECIALIZADO'),
-('CGQ0045', 'MANEJO DE SUSTANCIAS QUIMICAS PELIGROSAS Y AGENTES CONTAMINANTES', 4, 36, false, 'ESPECIALIZADO'),
-('CGQ0009', 'PRUEBAS DE COMBUSTIÓN Y PUESTA A PUNTO DEL GENERADOR DE VAPOR', 8, 32, false, 'ESPECIALIZADO'),
-('CGQ0046', 'RUMBO A LA CERTIFICACIÓN DE INDUSTRIA LIMPIA', 0, 40, false, 'ESPECIALIZADO'),
-('CGQ0044', 'TÉCNICAS DE ANÁLISIS DE AGUAS, COMBUSTOLEO Y ACEITES', 40, 40, false, 'ESPECIALIZADO'),
-('CGQ0010', 'TRATAMIENTO DE AGUA DE REPUESTO AL CICLO AGUA-VAPOR', 8, 32, false, 'ESPECIALIZADO'),
-('CGY0047', 'TRATAMIENTO QUIMICO DEL CICLO', 0, 24, false, 'ESPECIALIZADO'),
-('CGQ0035', 'TRATAMIENTO QUIMICO DEL CICLO AGUA-VAPOR Y CONTAMINACIONES PRESENTES', 24, 16, false, 'TECNICO'),
-('CGQ0008', 'TRATAMIENTO QUÍMICO INTERNO Y CONTROL DE PROBLEMAS INHERENTES', 32, 8, false, 'ESPECIALIZADO'),
-('CGQ0004', 'TRATAMIENTO QUÍMICO PARA EL SISTEMA DE ENFRIAMIENTO', 8, 32, false, 'ESPECIALIZADO'),
-('CGS0016', 'ADMINISTRACIÓN DE RIESGOS', 0, 40, false, 'ADMINISTRATIVO'),
-('CGS0013', 'ANÁLISIS DE ACCIDENTES E INCIDENTES EN EL TRABAJO', 0, 40, false, 'ADMINISTRATIVO'),
-('CGS0090', 'ATENCIÓN A VISITAS DE LA STPS', 0, 16, false, 'ESPECIALIZADO'),
-('CGY0220', 'ATENCIÓN PSICOLÓGICA DE PRIMER CONTACTO', 0, 10, false, 'ADMINISTRATIVO'),
-('CGY0275', 'BRIGADA DE BÚSQUEDA Y RESCATE NIVEL 0 (BÁSICO)', 8, 0, false, 'ADMINISTRATIVO'),
-('CGS0147', 'BRIGADA DE BÚSQUEDA Y RESCATE NIVEL I (INTERMEDIO)', 11, 5, false, 'ESPECIALIZADO'),
-('CGS0148', 'BRIGADA DE BÚSQUEDA Y RESCATE NIVEL II (AVANZADO)', 15, 9, false, 'TECNICO'),
-('CGY0273', 'BRIGADA DE EVACUACIÓN NIVEL 0 (BÁSICO)', 8, 0, false, 'ADMINISTRATIVO'),
-('CGY0274', 'BRIGADA DE PRIMEROS AUXILIOS NIVEL 0 (BÁSICO)', 8, 0, false, 'ADMINISTRATIVO'),
-('CGS0149', 'BRIGADA DE PRIMEROS AUXILIOS NIVEL I (INTERMEDIO)', 11, 5, false, 'TECNICO'),
-('CGS0150', 'BRIGADA DE PRIMEROS AUXILIOS NIVEL II (AVANZADO)', 15, 9, false, 'TECNICO'),
-('CGY0232', 'COLORES Y SEÑALES DE SEGURIDAD E HIGIENE, E IDENTIFICACIÓN DE RIESGOS POR FLUIDOS CONDUCIDOS EN TUBERÍAS (NOM-026-STPS-2008)', 0, 10, false, 'TECNICO'),
-('CGS0063', 'COMISIONES DE SEGURIDAD E HIGIENE PARA INTEGRANTES', 24, 16, false, 'TECNICO'),
-('CGY0240', 'CONCEPTOS DE SEGURIDAD INDUSTRIAL', 20, 0, false, 'ADMINISTRATIVO'),
-('CGY0261', 'CONDICIONES DE ILUMINACIÓN EN LOS CENTROS DE TRABAJO (NOM-025-STPS-2008)', 0, 10, false, 'TECNICO'),
-('CGY0238', 'CONDICIONES DE SEGURIDAD PARA EL ACCESO Y DESARROLLO DE ACTIVIDADES DE TRABAJADORES CON DISCAPACIDAD EN LOS CENTROS DE TRABAJO (NOM-034-STPS-2016)', 0, 10, false, 'TECNICO'),
-('CGY0057', 'CONDICIONES DE SEGURIDAD PARA REALIZAR TRABAJOS EN ALTURA (NOM-009-STPS-2011)', 10, 0, false, 'TECNICO'),
-('CGY0147', 'CONSTITUCION, INTEGRACION Y FUNCIONAMIENTO DE LAS COMISIONES DE SEGURIDAD E HIGIENE (NOM-019-STPS-2011)', 36, 4, false, 'TECNICO'),
-('CGY0239', 'CURSO BÁSICO PARA LA INTERPRETACIÓN DE LA NOM-035-STPS-2018', 40, 0, false, 'ADMINISTRATIVO'),
-('CGS0067', 'DIPLOMADO EN RESCATE PARA BRIGADISTAS MÓDULO I', 28, 12, false, 'ESPECIALIZADO'),
-('CGS0068', 'DIPLOMADO EN RESCATE PARA BRIGADISTAS MÓDULO II', 28, 12, false, 'ESPECIALIZADO'),
-('CGS0069', 'DIPLOMADO EN RESCATE PARA BRIGADISTAS MÓDULO III', 12, 28, false, 'ESPECIALIZADO'),
-('CGS0029', 'DIPLOMADO SOBRE INGENIERÍA EN SEGURIDAD INDUSTRIAL MÓDULO I (NORMATIVIDAD Y GESTIÓN DE SEGURIDAD)', 24, 16, false, 'ESPECIALIZADO'),
-('CGS0030', 'DIPLOMADO SOBRE INGENIERÍA EN SEGURIDAD INDUSTRIAL MÓDULO II (HIGIENE INDUSTRIAL)', 24, 16, false, 'ESPECIALIZADO'),
-('CGS0031', 'DIPLOMADO SOBRE INGENIERÍA EN SEGURIDAD INDUSTRIAL MÓDULO III (SISTEMAS CONTRAINCENDIOS)', 24, 16, false, 'ESPECIALIZADO'),
-('CGS0032', 'DIPLOMADO SOBRE INGENIERÍA EN SEGURIDAD INDUSTRIAL MÓDULO IV (ANÁLISIS DE RIESGOS)', 24, 16, false, 'ESPECIALIZADO'),
-('CGS0033', 'DIPLOMADO SOBRE INGENIERÍA EN SEGURIDAD INDUSTRIAL MÓDULO V (SALUD EN EL TRABAJO)', 24, 16, false, 'ESPECIALIZADO'),
-('CGY0231', 'EDIFICIOS, LOCALES, INSTALACIONES Y ÁREAS EN LOS CENTROS DE TRABAJO - CONDICIONES DE SEGURIDAD (NOM-001-STPS-2008)', 0, 10, false, 'TECNICO'),
-('CGY0236', 'ELECTRICIDAD ESTÁTICA EN LOS CENTROS DE TRABAJO-CONDICIONES DE SEGURIDAD (NOM-022-STPS-2008)', 10, 0, false, 'ADMINISTRATIVO'),
-('CGY0209', 'FACTORES DE RIESGO ERGONÓMICO EN EL TRABAJO (NOM-036-STPS-2018)', 10, 0, false, 'TECNICO'),
-('CGY0217', 'FACTORES DE RIESGO PSICOSOCIAL EN EL TRABAJO-IDENTIFICACION, ANALISIS Y PREVENCION (NOM-035-STPS-2018)', 20, 0, false, 'ADMINISTRATIVO'),
-('CGY0256', 'FUNDAMENTOS PARA INSPECCIÓN Y MANEJO DE RECIPIENTES SUJETOS A PRESIÓN', 0, 20, false, 'TECNICO'),
-('CGY0213', 'GESTIÓN INTEGRAL DE RIESGOS', 0, 20, false, 'TECNICO'),
-('CGS0183', 'IDENTIFICACION, EVALUACION Y CONTROL DE LOS FACTORES DE RIESGO ERGONOMICO', 8, 32, false, 'TECNICO'),
-('CGS0165', 'IMPORTANCIA DE LA SEGURIDAD E HIGIENE EN LOS CENTROS DE TRABAJO', 32, 8, false, 'ADMINISTRATIVO'),
-('CGY0163', 'INDUCCIÓN A LA SEGURIDAD', 10, 0, false, 'ADMINISTRATIVO'),
-('CGS0160', 'INTEGRACIÓN DE BRIGADAS MULTIDISCIPLINARIA', 16, 40, false, 'ADMINISTRATIVO'),
-('COGS0003', 'INTERPRETACION DE LAS NORMAS OFICIALES MEXICANAS ACREDITADAS EN EL LABORATORIO DE LA CFE (NOM-011-STPS-2001 Y NOM-025-STPS-2008) RUIDO E ILUMINACION', 24, 40, false, 'ADMINISTRATIVO'),
-('CGS0197', 'Introduccion a la NOM-029-STPS-2011, Mantenimiento de las instalaciones eléctricas en los centros de trabajo-Condiciones de seguridad', 24, 0, false, 'TECNICO'),
-('CGY0216', 'INTRODUCCIÓN A EVACUACIÓN DE INSTALACIONES', 0, 10, false, 'TECNICO'),
-('CGY0176', 'INTRODUCCION A LA EVACUACIÓN DE INSTALACIONES', 0, 40, false, 'TECNICO'),
-('CGS0198', 'Introduccion a la NOM-003-SEGOB-2011, Señales y avisos para protección civil.- Colores, formas y símbolos a utilizar', 24, 0, false, 'TECNICO'),
-('CGY0262', 'INTRODUCCIÓN A LA NOM-018-STPS-2015, SISTEMA ARMONIZADO PARA LA IDENTIFICACIÓN Y COMUNICACIÓN DE PELIGROS Y RIESGOS POR SUSTANCIAS QUIMICAS PELIGROSAS EN LOS CENTROS DE TRABAJO', 0, 10, false, 'TECNICO'),
-('CGS0199', 'Introduccion a la NOM-033-STPS-2015, Condiciones de seguridad para realizar trabajos en espacios confinados', 24, 0, false, 'TECNICO'),
-('CGY0242', 'INTRODUCCIÓN A LA NOM-036-1-STPS-2018 (FACTORES DE RIESGO ERGONÓMICO EN EL TRABAJO)', 0, 40, false, 'ESPECIALIZADO'),
-('CGY0203', 'INTRODUCCIÓN A LA NORMATIVIDAD Y SEGURIDAD PARA LA OPERACION DE RECIPIENTES SUJETOS A PRESIÓN (NOM-020-STPS)', 0, 40, false, 'TECNICO'),
-('CGY0162', 'INTRODUCCIÓN A LA PREVENCIÓN Y COMBATE DE INCENDIOS', 0, 40, false, 'TECNICO'),
-('CGY0179', 'INTRODUCCIÓN A LA SALUD EN EL TRABAJO', 40, 0, false, 'TECNICO'),
-('CGY0003', 'INTRODUCCIÓN A LA SEGURIDAD E HIGIENE', 4, 36, false, 'TECNICO'),
-('CGY0148', 'INTRODUCCIÓN A LA SEGURIDAD INDUSTRIAL PARA SUPERVISORES Y MANDOS MEDIOS', 0, 40, false, 'ADMINISTRATIVO'),
-('CGY0036', 'INTRODUCCIÓN A PRIMEROS AUXILIOS', 20, 0, false, 'ADMINISTRATIVO'),
-('CGY0161', 'INTRODUCCIÓN A PROTECCIÓN CIVIL', 10, 0, false, 'ADMINISTRATIVO'),
-('CGY0177', 'INTRODUCCIÓN AL EQUIPO DEL PROTECCIÓN PERSONAL (NOM-017-STPS)', 40, 0, false, 'TECNICO'),
-('CGY0178', 'INTRODUCCIÓN AL MANEJO DE ESTRÉS', 40, 0, false, 'ADMINISTRATIVO'),
-('CGY0112', 'INTRODUCCION AL REGLAMENTO DE SEGURIDAD E HIGIENE CAP. 100', 8, 32, false, 'ADMINISTRATIVO'),
-('CGY0204', 'INTRODUCCIÓN AL SISTEMA GLOBALMENTE ARMONIZADO (NOM-018-STPS-2015)', 40, 0, false, 'TECNICO'),
-('COGS0002', 'INVESTIGACIÓN DE ACCIDENTES E INCIDENTES EN EL TRABAJO', 20, 20, false, 'ADMINISTRATIVO'),
-('CGY0193', 'INVESTIGACIÓN Y ANÁLISIS DE INCIDENTES', 20, 0, false, 'ADMINISTRATIVO'),
-('CGS0184', 'LIDERAZGO Y ADMINISTRACION MODERNA DE LA SEGURIDAD', 20, 20, false, 'TECNICO'),
-('CGY0280', 'MANEJO A LA DEFENSIVA EN VEHÍCULOS', 20, 0, false, 'ADMINISTRATIVO'),
-('CGS0200', 'MANEJO Y ALMACENAMIENTO DE MATERIALES (NOM-006-STPS)', 20, 0, false, 'ADMINISTRATIVO'),
-('CGY0237', 'MANTENIMIENTO DE LAS INSTALACIONES ELÉCTRICAS EN LOS CENTROS DE TRABAJO-CONDICIONES DE SEGURIDAD (NOM-029-STPS-2011)', 10, 0, false, 'TECNICO'),
-('CGS0166', 'METODOLOGÍA DE LAS 5 S ENFOCADO A SEGURIDAD', 20, 20, false, 'ADMINISTRATIVO'),
-('CGY0235', 'NOM-008-SEGOB-2015, PERSONAS CON DISCAPACIDAD.- ACCIONES DE PREVENCIÓN Y CONDICIONES DE SEGURIDAD EN MATERIA DE PROTECCIÓN CIVIL EN SITUACIÓN DE EMERGENCIA O DESASTRE', 0, 10, false, 'TECNICO'),
-('CGS0187', 'NOM-035 Y NOM-036 (APLICACIÓN Y ANÁLISIS)', 20, 20, false, 'ADMINISTRATIVO'),
-('CGS0009', 'PREVENCIÓN DE RIESGOS LABORALES Y SALUD OCUPACIONAL', 20, 20, false, 'TECNICO'),
-('CGS0125', 'PREVENCION Y COMBATE DE INCENDIOS NIVEL I. (BRIGADISTAS DE PROCESO)', 9, 15, false, 'TECNICO'),
-('CGS0126', 'PREVENCION Y COMBATE DE INCENDIOS NIVEL II. (BRIGADISTAS DE CENTRAL)', 16, 24, false, 'TECNICO'),
-('CGS0127', 'PREVENCION Y COMBATE DE INCENDIOS NIVEL III. (COMANDANTE DE BRIGADA)', 12, 28, false, 'TECNICO'),
-('CGS0167', 'PREVENCION Y PROTECCION CONTRA INCENDIOS NIVEL 0 (MANEJO DE EXTINTORES PORTATILES)', 0, 8, false, 'TECNICO'),
-('CGS0002', 'PRIMEROS AUXILIOS BÁSICOS', 20, 20, false, 'ADMINISTRATIVO'),
-('CGS0178', 'PRIMEROS AUXILIOS NIVEL I', 10, 30, false, 'TECNICO'),
-('CGS0021', 'PRIMEROS AUXILIOS NIVEL II', 28, 12, false, 'TECNICO'),
-('CGS0059', 'PRIMEROS AUXILIOS PARA BRIGADAS I', 12, 28, false, 'ESPECIALIZADO'),
-('CGS0060', 'PRIMEROS AUXILIOS PARA BRIGADAS II', 12, 28, false, 'ESPECIALIZADO'),
-('CGY0241', 'PRINCIPIOS DE PROTECCIÓN CIVIL', 20, 0, false, 'TECNICO'),
-('CGS0193', 'PROTECCIÓN CIVIL NIVEL I', 24, 0, false, 'ADMINISTRATIVO'),
-('CGS0005', 'RESCATE Y PRIMEROS AUXILIOS', 16, 24, false, 'TECNICO'),
-('CGS0048', 'RESCATE Y PRIMEROS AUXILIOS EN ESTRUCTURAS DE TRANSMISIÓN', 12, 28, false, 'ADMINISTRATIVO'),
-('CGS0061', 'RESCATE Y PRIMEROS AUXILIOS INTERMEDIO', 20, 20, false, 'TECNICO'),
-('CGS0008', 'RESPUESTA A INCIDENTES CON MATERIALES PELIGROSOS', 16, 24, false, 'ESPECIALIZADO'),
-('CGS0058', 'SEGURIDAD Y COMPORTAMIENTO HUMANO', 36, 4, false, 'ESPECIALIZADO'),
-('CGS0100', 'SEGURIDAD Y RESCATE EN ESPACIOS CONFINADOS', 12, 28, false, 'ESPECIALIZADO'),
-('CGS0191', 'SEMINARIO PARA LA ATENCION DE EMERGENCIAS PARA BRIGADISTAS (MODULO I)', 16, 24, false, 'TECNICO'),
-('CGS0192', 'SEMINARIO PARA LA ATENCION DE EMERGENCIAS PARA BRIGADISTAS (MODULO II)', 16, 24, false, 'TECNICO'),
-('CGY0233', 'SEÑALES Y AVISOS PARA PROTECCIÓN CIVIL COLORES, FORMAS Y SÍMBOLOS A UTILIZAR (NOM-003-SEGOB-2011)', 10, 0, false, 'TECNICO'),
-('CGY0253', 'SERVICIOS PREVENTIVOS DE SEGURIDAD Y SALUD EN EL TRABAJO - FUNCIONES Y ACTIVIDADES (NOM-030-STPS-2009)', 10, 0, false, 'TECNICO'),
-('CGS0122', 'TALLER DE ACTUALIZACIÓN DE BRIGADAS POLIFUNCIONALES', 32, 0, false, 'ADMINISTRATIVO'),
-('CGS0188', 'TALLER DE PREVENCIÓN/ATENCIÓN MÉDICA Y CALIFICACIÓN DE PROBABLE ENFERMEDAD DE TRABAJO (ST-9), POR RIESGOS PSICOSOCIALES', 18, 27, false, 'ESPECIALIZADO'),
-('CGS0190', 'TALLER DEL SISTEMA INFORMÁTICO DE SEGURIDAD Y SALUD EN EL TRABAJO (SISST 2.0)', 20, 12, false, 'TECNICO'),
-('CGS0182', 'TALLER DEL SISTEMA INFORMATICO DE SEGURIDAD Y SALUD EN EL TRABAJO (SISST)', 0, 40, false, 'TECNICO'),
-('CGS0181', 'TALLER DEL SISTEMA INFORMATICO PROTECCION CIVIL INSTITUCIONAL (PCI)', 0, 40, false, 'TECNICO'),
-('CGS0137', 'TALLER PARA LA ATENCIÓN DE REQUERIMIENTOS DE LA NOM-035-STPS-2018', 8, 32, false, 'ESPECIALIZADO'),
-('CGS0047', 'TRABAJO EN ALTURAS (NOM-009-STPS-2011)', 16, 24, false, 'TECNICO'),
-('CIY0037', 'ADOBE INDESIGN', 32, 8, false, 'ADMINISTRATIVO'),
-('CID0019', 'ADOBE PHOTOSHOP AVANZADO', 0, 40, false, 'TECNICO'),
-('CID0007', 'AUTOCAD (2D Y 3D)', 32, 8, false, 'TECNICO'),
-('CIY0080', 'AUTOCAD REVIT 2016', 20, 20, false, 'TECNICO'),
-('CID0025', 'DISEÑO DE CONTENIDOS CON CANVA', 10, 10, false, 'TECNICO'),
-('CIY0049', 'DISEÑO DE PÁGINAS WEB CON HTML Y CCS', 20, 20, false, 'TECNICO'),
-('CIY0199', 'FORMACION DE DISEÑADOR GRAFICO PARA ENTORNOS DE APRENDIZAJE VIRTUALES: MODULO I - MOODLE, ADOBE PHOTOSHOP, ADOBE ILLUSTRATOR, ADOBE CHARACTER ANIMATOR', 24, 16, false, 'TECNICO'),
-('CIY0190', 'FORMACION DE DISEÑADOR GRAFICO PARA ENTORNOS DE APRENDIZAJE VIRTUALES: MODULO II - ADOBE AUDITION, ADOBE PREMIERE, H5P EN MOODLE', 24, 16, false, 'TECNICO'),
-('CID0028', 'HERRAMIENTAS DE EDICIÓN DE IMÁGENES (PHOTOSHOP E ILLUSTRATOR)', 30, 10, false, 'TECNICO'),
-('CIY0201', 'INTRODUCCIÓN A AUTOCAD', 0, 40, false, 'TECNICO'),
-('CIY0036', 'INTRODUCCIÓN A AUTOCAD (2D)', 0, 40, false, 'ADMINISTRATIVO'),
-('CIY0230', 'ACTIVO FIJO AVANZADO EN SAP', 12, 28, false, 'ESPECIALIZADO'),
-('CIY0229', 'ACTIVO FIJO BÁSICO EN SAP', 12, 28, false, 'ADMINISTRATIVO'),
-('CIN0152', 'ADMINISTRACIÓN DE WINDOWS SERVER 2016', 32, 8, false, 'TECNICO'),
-('CIY0236', 'ADMINISTRACIÓN DE ALMACENES AVANZADO EN SAP (MM-IM)', 12, 28, false, 'ADMINISTRATIVO'),
-('CIY0235', 'ADMINISTRACIÓN DE ALMACENES BÁSICO EN SAP (MM-IM)', 12, 28, false, 'ADMINISTRATIVO'),
-('CIY0244', 'ADMINISTRACIÓN DE PROYECTOS (PS) EN SAP', 8, 32, false, 'ADMINISTRATIVO'),
-('CIN0030', 'ADQUISICIONES SISTEMA SAP', 28, 12, false, 'ESPECIALIZADO'),
-('CIN0026', 'ALMACENES SISTEMA SAP', 28, 12, false, 'ESPECIALIZADO'),
-('CIN0085', 'ALMACENES SISTEMA SAP AVANZADO', 12, 28, false, 'ESPECIALIZADO'),
-('CIN0018', 'BÁSICO DE FINANZAS SISTEMA SAP', 28, 12, false, 'ESPECIALIZADO'),
-('CIY0222', 'BOOTSTRAP 5', 20, 20, false, 'TECNICO'),
-('CIY0063', 'COMUNICACIONES INALAMBRICAS', 20, 20, false, 'TECNICO'),
-('CIN0048', 'COSTOS EN EL SISTEMA SAP', 12, 28, false, 'ADMINISTRATIVO'),
-('CIY0231', 'COSTOS EN SAP', 28, 12, false, 'ADMINISTRATIVO'),
-('CIN0145', 'CREACIÓN Y USO DE INFORMES DE ANÁLISIS CON POWER BI', 40, 0, false, 'ADMINISTRATIVO'),
-('CIY0255', 'CURSO BÁSICO DE FINANZAS EN SAP', 28, 12, false, 'ADMINISTRATIVO'),
-('CIY0250', 'CURSO PARA COORDINADORES DE ROLES (APOYO) DEL SISTEMA INSTITUCIONAL DE INFORMACIÓN (SII)', 24, 16, false, 'ADMINISTRATIVO'),
-('CIY0245', 'CURSO PARA COORDINADORES DE ROLES DEL SISTEMA INSTITUCIONAL DE INFORMACIÓN (SII)', 12, 28, false, 'ADMINISTRATIVO'),
-('CIN0159', 'DASHBOARDS Y POWER PIVOT EN MICROSOFT EXCEL', 12, 28, false, 'TECNICO'),
-('CIN0074', 'ELABORACIÓN DE INFORME FISCAL SAP', 28, 12, false, 'ESPECIALIZADO'),
-('CIY0206', 'EXCEL AVANZADO', 20, 20, false, 'TECNICO'),
-('CIN0141', 'EXCEL AVANZADO 2019', 0, 40, false, 'ADMINISTRATIVO'),
-('CIY0203', 'EXCEL BÁSICO', 20, 20, false, 'ADMINISTRATIVO'),
-('CIN0138', 'EXCEL BÁSICO 2019', 40, 0, false, 'ADMINISTRATIVO'),
-('CIN0160', 'FICOAM/TR EN SII SAP', 20, 20, false, 'ADMINISTRATIVO'),
-('CIN0162', 'FICOAM/TR FM AVANZADO EN SII SAP', 24, 16, false, 'ADMINISTRATIVO'),
-('CIY0090', 'FORMACIÓN DE TUTORES: OPERACIÓN DEL CAMPUS VIRTUAL', 20, 20, false, 'ADMINISTRATIVO'),
-('CIN0019', 'FORMULACIÓN DEL PROYECTO DE PRESUPUESTO SISTEMA SAP', 12, 28, false, 'ESPECIALIZADO'),
-('CIY0094', 'FUNDAMENTOS DE ADMINISTRACIÓN DE PROYECTOS (PMBOK)', 12, 28, false, 'TECNICO'),
-('CIY0105', 'FUNDAMENTOS DE CLOUD', 28, 12, false, 'TECNICO'),
-('CIY0070', 'FUNDAMENTOS DE DIRECTORIO ACTIVO', 24, 16, false, 'TECNICO'),
-('CIN0133', 'INDUCCIÓN A LA PROGRAMACIÓN PHP', 0, 16, false, 'TECNICO'),
-('CIN0132', 'INDUCCIÓN A LAS REDES DE COMPUTADORAS', 16, 0, false, 'TECNICO'),
-('CIY0092', 'INFORMÁTICA PARA NO INFORMÁTICOS', 12, 28, false, 'ADMINISTRATIVO'),
-('CIY0197', 'INTRODUCCION A FORMS 365', 18, 2, false, 'TECNICO'),
-('CIN0156', 'INTRODUCCION A GENIALLY', 12, 8, false, 'TECNICO'),
-('CIN0167', 'INTRODUCCIÓN A LA INTELIGENCIA ARTIFICIAL', 20, 0, false, 'ADMINISTRATIVO'),
-('CIY0254', 'INTRODUCCIÓN A LA PLATAFORMA SAP', 8, 0, false, 'ADMINISTRATIVO'),
-('CIN0166', 'INTRODUCCIÓN A LA REALIDAD AUMENTADA (AR)', 20, 0, false, 'TECNICO'),
-('CIY0188', 'INTRODUCCION A LAS BASES DE DATOS', 16, 0, false, 'TECNICO'),
-('CIY0130', 'INTRODUCCIÓN A LAS TELECOMUNICACIONES', 4, 36, false, 'TECNICO'),
-('CIY0173', 'INTRODUCCIÓN A ONEDRIVE 365', 2, 18, false, 'TECNICO'),
-('CIY0172', 'INTRODUCCIÓN A OUTLOOK 365', 4, 36, false, 'ADMINISTRATIVO'),
-('CIY0175', 'INTRODUCCIÓN A PLANNER 365', 2, 18, false, 'TECNICO'),
-('CIY0174', 'INTRODUCCIÓN A SHAREPOINT 365', 18, 2, false, 'TECNICO'),
-('CIY0176', 'INTRODUCCIÓN A TEAMS 365', 18, 2, false, 'ADMINISTRATIVO'),
-('CIY0177', 'INTRODUCCIÓN AL AMBIENTE COLABORATIVO 365', 4, 36, false, 'TECNICO'),
-('CIN0155', 'MANTENIMIENTO A DISCOS DUROS', 12, 28, false, 'TECNICO'),
-('CIN0119', 'MANTENIMIENTO PREVENTIVO A EQUIPOS DE COMPUTO', 20, 20, false, 'TECNICO'),
-('CIY0104', 'MARKETING DIGITAL', 20, 20, false, 'TECNICO'),
-('CIN0075', 'METODOLOGIA SCRUM PARA LA ADMINISTRACIÓN AGIL DE PROYECTOS', 0, 40, false, 'ADMINISTRATIVO'),
-('CIN0157', 'MICROSOFT OFFICE 365', 40, 0, false, 'TECNICO'),
-('CIN0158', 'MICROSOFT POWER BI', 12, 28, false, 'TECNICO'),
-('CIY0256', 'MMC - ELABORACIÓN DE DOCUMENTOS DE ADQUISICIÓN EN SAP (BIENES)', 14, 6, false, 'ADMINISTRATIVO'),
-('CIY0257', 'MMC-ELABORACIÓN DE DOCUMENTOS DE CONTRATACIÓN EN SAP (SERVICIOS)', 6, 14, false, 'ADMINISTRATIVO'),
-('CIY0239', 'MMO - OBRA EN SAP', 16, 0, false, 'ADMINISTRATIVO'),
-('CIN0031', 'MMO-OBRA EN SISTEMA SAP', 12, 28, false, 'ESPECIALIZADO'),
-('CIY0180', 'MS OFFICE EXCEL 365', 40, 0, false, 'ADMINISTRATIVO'),
-('CIY0213', 'MS OFFICE EXCEL 365 AVANZADO', 24, 16, false, 'ADMINISTRATIVO'),
-('CIY0181', 'MS OFFICE POWER POINT 365', 40, 0, false, 'ADMINISTRATIVO'),
-('CIY0179', 'MS OFFICE WORD 365', 40, 0, false, 'ADMINISTRATIVO'),
-('CIY0146', 'MS OUTLOOK (EXCHANGE)', 40, 0, false, 'ADMINISTRATIVO'),
-('CIY0064', 'MS PROJECT PROFESSIONAL', 20, 20, false, 'TECNICO'),
-('CIY0234', 'NAVEGACIÓN EN CUBOS DE INFORMACIÓN DE ESSBASE CON LA HERRAMIENTA SMART VIEW', 5, 11, false, 'ESPECIALIZADO'),
-('CIN0020', 'PARQUE VEHICULAR SISTEMA SAP', 12, 28, false, 'ESPECIALIZADO'),
-('CIY0185', 'PHOTOSHOP BÁSICO', 12, 28, false, 'TECNICO'),
-('CIN0150', 'PMG-MANTENIMIENTO DE PARO PROGRAMADO EN SAP', 12, 28, false, 'ESPECIALIZADO'),
-('CIN0151', 'PMG-MANTENIMIENTO RUTINARIO EN SAP', 28, 12, false, 'ADMINISTRATIVO'),
-('CIY0243', 'PMT-MANTENIMIENTO TRANSMISIÓN EN SAP', 12, 28, false, 'ADMINISTRATIVO'),
-('CIY0204', 'POWER POINT AVANZADO', 20, 20, false, 'TECNICO'),
-('CIN0139', 'POWER POINT AVANZADO 2019', 20, 0, false, 'ADMINISTRATIVO'),
-('CIY0207', 'POWER POINT BÁSICO', 20, 20, false, 'ADMINISTRATIVO'),
-('CIN0142', 'POWER POINT BÁSICO 2019', 40, 0, false, 'ADMINISTRATIVO'),
-('CIY0233', 'REGISTRO Y COMPROBACIÓN DE OFICIOS DE COMISIÓN', 4, 12, false, 'ADMINISTRATIVO'),
-('CIY0193', 'SEGURIDAD DE LA INFORMACIÓN ANALISIS DE RIESGOS', 20, 20, false, 'TECNICO'),
-('CIN0014', 'SEGURIDAD INFORMÁTICA', 12, 28, false, 'ESPECIALIZADO'),
-('CIY0093', 'SEGURIDAD INFORMÁTICA BÁSICA', 12, 28, false, 'TECNICO'),
-('CIN0025', 'TALLER ACTIVO FIJO SISTEMA SAP', 12, 28, false, 'ADMINISTRATIVO'),
-('CIN0017', 'TALLER USUARIOS FINALES SISTEMA SAP', 28, 12, false, 'ADMINISTRATIVO'),
-('CIN0028', 'TESORERÍA SISTEMA SAP', 12, 28, false, 'ESPECIALIZADO'),
-('CIN0034', 'TESORERÍA SISTEMA SAP AVANZADO', 28, 12, false, 'ESPECIALIZADO'),
-('CIN0060', 'VIRTUALIZACIÓN CON VMWARE', 32, 8, false, 'ESPECIALIZADO'),
-('CIY0238', 'WF - WORKFLOW PARA ADQUISICIÓN DE BIENES Y CONTRATACIÓN DE SERVICIOS Y OBRA PÚBLICA EN SAP', 20, 4, false, 'ADMINISTRATIVO'),
-('CIY0205', 'WORD AVANZADO', 20, 20, false, 'TECNICO'),
-('CIN0140', 'WORD AVANZADO 2019', 40, 0, false, 'ADMINISTRATIVO'),
-('CIY0202', 'WORD BÁSICO', 20, 20, false, 'ADMINISTRATIVO');
+    visibilidad VARCHAR(20) NOT NULL DEFAULT 'PRIVADA'
+        CHECK (visibilidad IN (
+            'PRIVADA',
+            'SELECTIVA',
+            'PUBLICA'
+        )),
 
-INSERT INTO cursoespecialidad (especialidadId, cursoId) VALUES
-    ('6bc5711a-f368-4bf2-8182-9e475c0f26a6', '4811aeaf-45a5-4e54-a30e-0e7bed78026f'), -- Seguridad e higiene en subestaciones eléctricas
-    ('6bc5711a-f368-4bf2-8182-9e475c0f26a6', 'b91744ac-0db8-4893-80a0-4632eb8e22a8'), -- Mantenimiento preventivo de transformadores de potencia
-    ('e801312c-6434-4ef9-9a18-37265ddf5cfe', '1b0be40d-1731-404c-a238-955513b37314'), -- Procedimientos de consignación y libranza en líneas de transmisión
-    ('fb0e0890-4779-4410-be3e-312ab212763a', '53cac98b-b26c-457a-894b-12d701a142da'), -- Normatividad técnica y operación del sistema eléctrico nacional
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '665ea32a-3aae-4ee4-8210-a421b3e64fea'), -- ACTAS ADMINISTRATIVAS
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '43f0b745-7e52-4ac5-8f69-1bb26a045ede'), -- ACTUALIZACION DE AUDITORES INTEGRALES
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '23238541-cb02-4004-a2a2-cb57a767c52a'), -- ACTUALIZACIÓN FISCAL
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'b4843c80-e01e-403d-b62d-6973b4cd28a9'), -- ADMINISTRACION BASICA
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'f0be5925-e535-4f10-b042-e3cc909f3202'), -- ADMINISTRACIÓN BÁSICA
-    ('dbdf929f-8ff3-415b-bc37-46cefc97e3a1', 'd9089183-33d2-4874-921d-2381a01ef6b9'), -- ADMINISTRACION DE CONTRATOS DE OBRAS Y SERVICIOS
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '9e5174d6-8331-470c-b6cb-6960d0ec026f'), -- ADMINISTRACIÓN DE PROYECTOS
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '592ff0fe-9625-4f37-887b-6013b170f8ee'), -- ADMINISTRACIÓN DE RECURSOS HUMANOS
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '57e223f0-ecaa-45ca-b593-8a484a29664b'), -- ADMINISTRACIÓN DEL TIEMPO
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '29eef8ef-24e0-4245-999c-1bb9a2dc1575'), -- ADMINISTRACIÓN ESTRATÉGICA CONCEPTOS BÁSICOS
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '3d51e51b-177a-4573-8bee-a1a51b550d33'), -- ADMINISTRACIÓN FINANCIERA
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'ab90eaa7-61ee-4cf0-8fbd-1505c355df83'), -- ADMINISTRACIÓN PARA INGENIEROS
-    ('00e87e59-9e3a-47d1-9c8b-fc480e3c65e4', '78a334dc-e50f-4188-ab9a-5fee5b104ed1'), -- ALINEACIÓN AL PROCESO DE EVALUACIÓN PARA CERTIFICACIÓN DE INSTRUCTORES EN EL EC0217.01 (B-LEARNING)
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '36ba74dc-ae4d-4805-8263-fe6ba009173f'), -- AMOR A MI CFE
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'abfe066c-507d-456f-b050-654144dd9610'), -- ANÁLISIS DE RIESGOS DE SST
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'bee3cb08-be56-41d5-ab72-67fad93c3476'), -- ARGUMENTACIÓN JURIDICA
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '48cfbbd2-57cb-46a2-bdef-2ccdffdcaa5e'), -- BASICO AUTOMOTRIZ
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '1aae6d16-dee5-4412-aaf1-51a35f776cf3'), -- BÁSICO EVALUACIÓN DE ESTRUCTURAS
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'fc65ef02-54fe-4d0a-8ee0-44dde1cb40e0'), -- BENCHMARKING
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '95087a7d-5d66-4d8a-aff2-28231f2b6241'), -- CALIDAD EN EL SERVICIO
-    ('e4d0f81f-f9fa-429b-b403-91eea3cc6758', '4c54de37-339e-4ff4-9029-a29d1713f440'), -- CONCEPTOS BÁSICOS PARA LOGRAR UNA CULTURA DE CALIDAD, AMBIENTAL Y SEGURIDAD EN LA CFE
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', 'a3109fd8-fad8-4ece-95a2-ecfd5175320c'), -- CONOCIENDO SINAPROC
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '69ae3b84-cd72-414d-a1be-d41635053d1e'), -- CONOCIMIENTOS BÁSICOS PARA ASISTENTES EJECUTIVAS
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '3de9ecb9-6c94-41ed-bb73-3746f1a7a862'), -- CONTABILIDAD
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'd2f5154c-560b-4c41-9a09-e564bf461524'), -- CONTABILIDAD BASICA
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'e95cb67a-040e-4cce-8e25-cb162ab701e9'), -- CONTRATO COLECTIVO DE TRABAJO
-    ('ce395726-35ab-4e3e-82d1-01df7444d975', '1a6a387d-fe18-4f92-b651-99ee268d698a'), -- CORROSIÓN Y PROTECCIÓN CATÓDICA
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '96af77bf-278d-4ef8-a998-82c364efcebc'), -- CURSO BÁSICO DE DERECHOS HUMANOS
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '64a0a275-28f1-47b5-a301-f6f5fdbb6a19'), -- CURSO BÁSICO DE PROTECCIÓN CIVIL
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '0b00751d-7e36-4715-b6dd-3fe7b04ebef1'), -- DERECHO MERCANTIL
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '33e40b10-569a-40d1-a56c-53a2bcf62be9'), -- DERECHO PROCESAL LABORAL
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '472bcdca-3a47-48eb-913f-d5d96b4485f7'), -- DESARROLLO DE AUDITORES PARA LA ISO 19011:2011
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'c0349f8e-322f-457c-916f-2467a2ec1276'), -- DESARROLLO DE AUDITORES PARA LA ISO 45001:2018
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '0938cbe1-ae67-4b92-a7f1-3a3691a32523'), -- DESARROLLO DE AUDITORIA INTERNA BAJO LA ISO 9001:2015
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '683e09a4-fb8c-4ba2-b52a-3fc745d11cc4'), -- DICTÁMENES (JUBILACIÓN, SEPARACIÓN VOLUNTARIA, FINIQUITOS)
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '52b68c5d-486b-4a49-ac34-674b39e556b9'), -- DIPLOMADO EN FORMACIÓN DE MANDOS MEDIOS MODULO I (COMUNICACIÓN INTERPERSONAL)
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '0fdc715d-80b8-4525-a9d2-c50d34c93366'), -- DIPLOMADO EN FORMACIÓN DE MANDOS MEDIOS MODULO II (TOMA DE DECISIONES Y LIDERAZGO)
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'a4fa9849-9f4c-463c-bac9-a6b96c931340'), -- DIPLOMADO EN FORMACIÓN DE MANDOS MEDIOS MODULO III (DIRECCIÓN DE EQUIPOS Y ADMINISTRACIÓN DE PROYECTOS)
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '8c1c2698-0322-4742-97ef-8f7db49b0904'), -- DIPLOMADO EN GESTIÓN ESTRATÉGICA MÓDULO I
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'e5512c43-fb38-415b-9694-06756ad72c83'), -- DIPLOMADO EN GESTIÓN ESTRATÉGICA MÓDULO II
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'a9250b5d-131f-4471-9c44-ff58911022ee'), -- DIPLOMADO EN GESTIÓN ESTRATÉGICA MÓDULO III
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '35a488e1-0129-43c6-bff0-a826b386ddb0'), -- DIPLOMADO EN GESTIÓN ESTRATÉGICA MÓDULO IV
-    ('dbdf929f-8ff3-415b-bc37-46cefc97e3a1', '70e8cd74-756d-47ef-a2e5-d6522db821f6'), -- DISPOSICIONES GENERALES EN MATERIA DE ADQUISICIONES, ARRENDAMIENTOS, CONTRATACIÓN DE SERVICIOS Y EJECUCIÓN DE OBRAS DE LA CFE Y SUS EPS
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '4f13e216-966f-49dc-9bba-2910445769ba'), -- EJECUTIVO EFICAZ I (8 PRÁCTICAS)
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'c59c52f0-6b42-4483-9c98-67d1b2ea3ed0'), -- EJECUTIVO EFICAZ II (VENTAS EFECTIVAS)
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'e1c8a6e3-78ea-4a3e-ba45-a522b73dd928'), -- EJECUTIVO EFICAZ III (CAPACIDAD DE ANÁLISIS)
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '67eee335-4836-4427-ba6d-cd0496dae57b'), -- ELABORACIÓN DE PERFILES
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '16d9192c-8faf-45f6-ae43-db136236271c'), -- ELABORACIÓN DE PERFILES MODULO I
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'ee03122d-c776-47df-8f2d-212ea809680a'), -- ELABORACIÓN DE PERFILES MODULO II
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'c8e18c67-81a7-4515-b224-68d7c153e976'), -- EMPODERAMIENTO, LIDERAZGO ENFOCADO Y RETROALIMENTACIONES ASERTIVAS
-    ('fb0e0890-4779-4410-be3e-312ab212763a', 'a69b75de-3bd5-483e-973d-31c7c5013781'), -- ENERGIAS RENOVABLES Y NO RENOVABLES
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'f05f660f-b14e-465b-99a6-c9634eb565c7'), -- ETICA CORPORATIVA E INTEGRIDAD PUBLICA
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '8c8b4bce-04c1-4c48-be6c-a1592f8ba70e'), -- ÉTICA CORPORATIVA E INTEGRIDAD PUBLICA (SESIÓN DE ACTUALIZACIÓN Y HABILITACIÓN)
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'df057a7e-f1fa-4357-a3ab-239ade1a1645'), -- ÉTICA CORPORATIVA EN LA CFE
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'da592f87-965e-4111-93a5-cfbc9809e5dd'), -- ÉTICA Y TRANSPARENCIA
-    ('f920ef26-66a1-4922-815d-8f9ed52e1870', '3dbaa040-2906-4497-ab4a-a2d7dc09e6bc'), -- FACTURACIÓN DE TARIFAS ELECTRICAS
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'ee3331c6-672d-4ba2-a650-a10868ea9186'), -- FINANZAS PARA NO FINANCIEROS
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '858e3fdc-a639-43e1-a67a-76aa96c9b1ff'), -- FORMACIÓN DE AUDITORES INTEGRALES MÓDULO I
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '9de99506-c79a-4c03-8af8-2c2e0e112d8e'), -- FORMACIÓN DE AUDITORES INTEGRALES MÓDULO II
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '0f3fa671-e8d4-42ea-aadc-33989ac2eb0e'), -- FUNDAMENTOS DE EQUIPOS DE TRABAJO A DISTANCIA
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '3816ba47-aaa4-45ff-884c-d0135de48ad6'), -- FUNDAMENTOS DE LAS TÉCNICAS DE NEGOCIACIÓN Y MANEJO DE CONFLICTOS
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '1ebdbe23-c726-40fb-a589-ad1c8e0ee38e'), -- FUNDAMENTOS DE TÉCNICAS DE NEGOCIACIÓN
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'c4231c35-2d73-404e-aa99-20eac5b2822f'), -- GESTIÓN DE RIESGOS EN LA ORGANIZACIÓN
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'cc5b8bcf-822d-483d-822c-ceca1092efce'), -- GESTIÓN DE RIESGOS OPERATIVOS Y OPORTUNIDADES
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '4f42d02d-700e-4312-b961-72d4b915b7f5'), -- GESTIÓN EFECTIVA DEL TIEMPO
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'dbca5a51-8d16-4348-b828-eaaafedaf311'), -- HERRAMIENTAS ESTADÍSTICAS BÁSICAS
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '8348f041-7da0-49e3-b411-595f9b07f36b'), -- HERRAMIENTAS SECRETARIALES
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '0f3228a8-6866-49be-86b9-7d3622e80c22'), -- IDENTIFICACIÓN DE PELIGROS Y EVALUACIÓN DE RIESGOS DE SST CONFORME AL PROCEDIMIENTO P-1020-007
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'a85d8476-76df-4910-a988-743e14c869fc'), -- IGUALDAD DE OPORTUNIDADES. UNA REALIDAD EN CFE
-    ('ef71f035-6c5f-4d7d-8d1c-1f021d62f185', 'faa799ae-98f4-4938-a6be-411cf6fde805'), -- INDUCCION A LA COMISION FEDERAL DE ELECTRICIDAD 2022
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'eb973687-c51a-4e64-8e60-7991ed2226cb'), -- INDUCCIÓN A LA INFORMACIÓN DOCUMENTADA TRANSVERSAL
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'c436f941-6f0d-4885-9647-e91ba7713246'), -- INDUCCION A LA INTELIGENCIA EMOCIONAL (AUTODIRIGIDO)
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', 'c5ac1c74-879c-480c-a10d-d2535db21bd6'), -- INDUCCION A LA SEGURIDAD SOCIAL (LEY DEL SEGURO SOCIAL)
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '45c412e9-43eb-474c-88f2-17226c58cd08'), -- INDUCCIÓN AL SISTEMA INTEGRAL DE GESTIÓN CFE
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'a8255ded-8190-43c5-af89-388a3dade11d'), -- INGLES BÁSICO I
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '85793c0d-0eb3-4336-b733-5806a1c94648'), -- INTERPRETACIÓN Y APLICACIÓN DEL CONTRATO COLECTIVO DE TRABAJO CFE-SUTERM
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'f34764a5-8b6d-411e-a4e6-9d704c817703'), -- INTRODUCCIÓN A CFE CON ENFOQUE A RELACIONES LABORALES
-    ('dbdf929f-8ff3-415b-bc37-46cefc97e3a1', '0321fdef-32e9-4842-8570-6ab5d26cc357'), -- INTRODUCCION A COSTOS Y PRECIOS UNITARIOS
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '00264e32-0c74-4301-a9f9-f6a10eb2e33d'), -- INTRODUCCION A HERRAMIENTAS ESTADÍSTICAS
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '75d27410-09c4-44e6-a17e-a35148598392'), -- INTRODUCCIÓN A LA DETECCIÓN DE NECESIDADES DE CAPACITACIÓN
-    ('dbdf929f-8ff3-415b-bc37-46cefc97e3a1', 'aeaebe2d-cdb2-400b-811c-adf3e55d8a77'), -- INTRODUCCION A LA ELABORACION DE SOLCON Y ORDENES MENORES
-    ('ef71f035-6c5f-4d7d-8d1c-1f021d62f185', '76949d94-cf2e-4b1b-bc36-829d2577e8e1'), -- INTRODUCCIÓN A LA LEY DE LA INDUSTRIA ELÉCTRICA Y SU REGLAMENTO
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '4eb7fa36-46b2-457f-83a8-7c301a1ecba7'), -- INTRODUCCIÓN A LA SEGURIDAD E HIGIENE BÁSICO
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '9c762ccb-1483-4bde-ac54-007eb7c8038e'), -- INTRODUCCIÓN A LOS CONCEPTOS DE FINANZAS
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '598f6310-7afe-40df-b602-82739b856b37'), -- INTRODUCCION AL COACHING
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '3cd6fe06-3509-4c56-bbef-24534466067b'), -- INTRODUCCIÓN AL MANEJO DE CONFLICTOS
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '16469941-ae02-4fa9-9caa-dfa6f1982c09'), -- INTRODUCCIÓN AL PLAN FAMILIAR DE PROTECCIÓN CIVIL
-    ('6a625a56-5bc2-4518-90ff-8a217b43af2e', 'a0556995-1402-45ce-96e8-6dd7e8f21a09'), -- INTRODUCCIÓN AL SISTEMA DE CONTROL INTERNO EN LA CFE
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '44169eec-6237-42bc-84e5-67a16bea8f39'), -- ISO 14001:2015 IMPLEMENTADO EN LA CFE
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '558b97ab-91c4-4e91-974a-cfb3f11fe6db'),
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '306e901e-915d-4120-8165-2651c52f4609'), -- ISO 45001:2018 IMPLEMENTADO EN LA CFE
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'f58d8c1c-aac7-4512-bc64-03edbec1c2e4'), -- ISO 9001:2015 IMPLEMENTADO EN LA CFE
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '5cafb885-6863-4bb0-a207-f27a81046831'), -- ISR SALARIOS, PRESTACIONES SIRH Y CFE
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '5ee78414-f706-4754-b309-36d4d5cf4f72'), -- JUICIOS LABORALES
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'cc952121-0839-46fe-9741-fc7e8d5ba118'), -- LA ÉTICA CORPORATIVA Y TOLERANCIA CERO A LA CORRUPCIÓN EN LA CFE. UNA EMPRESA PRODUCTIVA DEL ESTADO
-    ('e4d0f81f-f9fa-429b-b403-91eea3cc6758', 'e69fbc10-8498-4051-b0fa-6455e2e12b35'), -- LEGISLACIÓN EN MATERIA AMBIENTAL
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '503910df-562d-4ffd-a7c3-2e27b135e841'), -- LEGISLACIÓN EN MATERIA DE SST
-    ('ef71f035-6c5f-4d7d-8d1c-1f021d62f185', 'cc1faf87-1eae-4673-9111-37c5efaa6f16'), -- LEY DE LA INDUSTRIA ELÉCTRICA REGLAMENTO Y BASES
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '6a67779c-0fd5-4aa0-9f40-64fcedc7e19e'), -- LEY GENERAL DE RESPONSABILIDADES ADMINISTRATIVAS
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'b2468c6e-dbd6-4c7b-950e-d39c014f2ab9'), -- LEY GENERAL DE RESPONSABILIDADES ADMINISTRATIVAS DE LOS SERVIDORES PÚBLICOS
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'bd502f87-7b01-4905-8d3a-dd7ed155300b'), -- LIDERAZGO CENTRADO EN PRINCIPIOS A DISTANCIA
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'e58bdcce-44f6-4dca-8039-4cf3b2cff9ee'), -- MATEMATICAS FINACIERA
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '77b5a677-39ff-44b3-a200-5501287949f9'), -- MEJORA CONTINUA DEL SIG-CFE APLICANDO LA ISO 9004:2018
-    ('fb0e0890-4779-4410-be3e-312ab212763a', '5a3f4883-844b-4d19-9447-16a336f8e078'), -- MERCADO ELÉCTRICO MAYORISTA (BÁSICO)
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'ba27c335-808e-422a-9340-bf9f21591b52'), -- METODOLOGÍA 9S
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '8222ca52-d09b-448c-a30b-5c3de0e736ac'), -- MINDFULNESS: ATENCIÓN PLENA
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', 'b81d9265-02e2-4688-93ef-4f3619ab9e4f'), -- MÓDULO DE SEGURIDAD SOCIAL DEL SIRH
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '4a5a2fbf-6f08-4bf6-8deb-4f45a3319492'), -- NOMINAS BÁSICO
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'f148c271-a5b4-4e52-b851-20f6c56b1539'), -- ORTOGRAFÍA Y REDACCIÓN
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'bc8f7460-f8dd-47f9-a069-c9c30c2fb612'), -- PLANEACIÓN ESTRATEGICA
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '42d7876b-4159-4dab-a347-4254ba8ce0c5'), -- PLANEACIÓN FINANCIERA
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '269caef9-a2ae-456f-9f71-c102130cabfc'), -- PLANEACIÓN FISCAL
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'dcea1753-1c8b-40ce-8e20-657e005302d4'), -- PREVENCIÓN DE CONFLICTO DE INTERESES
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '60b8ef23-08a6-4cfc-9069-81fcbe6169a2'), -- PROCESO DEL ABASTECIMIENTO DE BIENES Y SERVICIOS Y SU NORMATIVIDAD APLICABLE
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'e7516f9f-8b0b-4c5a-9d59-cc2c5b16c3bd'), -- RELACIONES HUMANAS
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '9a6fd773-629b-484b-b0a9-086ea5ee1155'), -- RESPONSABILIDAD SOCIAL CONCEPTOS BÁSICOS
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '7b861315-c70c-4997-b657-375687a06c35'), -- SEGURIDAD SOCIAL MÓDULO I (LEY DEL SEGURO SOCIAL)
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', 'd864173d-4d53-47c5-b3f7-5c0a5ff379fb'), -- SEGURIDAD SOCIAL MÓDULO II (PROCEDIMIENTOS DE SEGURIDAD SOCIAL)
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '1e83f3c6-dcbd-4d6d-be5d-d592b9130c3e'), -- SEGURIDAD SOCIAL MÓDULO III
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '9f6462dd-335c-4740-a333-3dd51e79cdbf'), -- SEMINARIO FORMACIÓN DE HABILIDADES GERENCIALES MODULO I (PLANEACIÓN ESTRATÉGICA)
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'ad5dfdf5-bb91-4f30-9734-43ac08347a84'), -- SEMINARIO FORMACIÓN DE HABILIDADES GERENCIALES MODULO II (CONOCIMIENTO FINANCIERO)
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '5dc9d884-9742-4ada-8b0f-e8846792f76c'), -- SEMINARIO FORMACIÓN DE HABILIDADES GERENCIALES MODULO III (COMUNICACIÓN ORGANIZACIONAL)
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '7d64ceb4-840d-4d73-a272-d2b0a3d06e23'), -- SEMINARIO FORMACIÓN DE HABILIDADES GERENCIALES MODULO IV (LIDERAZGO EN TU EQUIPO)
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'ee6563c2-402b-4751-815b-0f36a2c07af4'), -- SEMINARIO FORMACIÓN DE HABILIDADES GERENCIALES MODULO IX (INNOVACIÓN GERENCIAL)
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '547c3954-4c51-410d-8da6-05138eb48055'), -- SEMINARIO FORMACIÓN DE HABILIDADES GERENCIALES MODULO V (TOMA DE DECISIONES ASERTIVAS)
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '2f91fbc5-22f0-4201-878d-4e5a3af3e157'), -- SEMINARIO FORMACIÓN DE HABILIDADES GERENCIALES MODULO VI (GESTIÓN DEL CAMBIO)
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '8a5974ac-a2c3-4c28-985a-0315ff2bfd69'), -- SEMINARIO FORMACIÓN DE HABILIDADES GERENCIALES MODULO VII (ENTRENANDO EQUIPOS DE TRABAJO)
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '2991fafb-f8a5-4492-b0dd-780256423f87'), -- SEMINARIO FORMACIÓN DE HABILIDADES GERENCIALES MODULO VIII (ADMINISTRACIÓN DEL TIEMPO)
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '3d585229-e31d-40af-8037-1d4377beff41'), -- SISTEMA 5S
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '20962667-ca7c-48ea-b20a-4b5bca2d78f9'), -- SISTEMA INTEGRAL DE RECURSOS HUMANOS (SIRH AVANZADO)
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '7f3e83e8-596e-495b-a018-a0fc5f960679'), -- SISTEMA INTEGRAL DE RECURSOS HUMANOS (SIRH INTERMEDIO)
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'e12593ee-6e12-49ed-94ac-ff725a1e4e07'), -- SISTEMA INTEGRAL DE RECURSOS HUMANOS PARA USUARIOS (SIRH BASICO)
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '10545f1b-0650-4586-b1b6-1adb282d8c4e'), -- TALLER DE ADMINISTRACIÓN DE SALARIOS Y PRESTACIONES
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '24bfe3e3-1538-4df0-88cd-a36bc73fdc8f'), -- TALLER EN MATERIA DE COMERCIO EXTERIOR Y TRANSPORTACIÓN DE MERCANCÍAS (TRÁFICO)
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'bb271ca8-a330-45b0-b71a-027b9a40bd02'), -- TALLER PARA LA ADMINISTRACIÓN DE BIENES EN LOS ALMACENES DE LA CFE Y SUS EPS CLAVE SEGUNDO NIVEL
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', '2389083f-59dc-4307-a34c-d90f51d57c78'), -- TALLER PARA LA APLICACIÓN DEL SICACYP
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', 'f71f99a9-8537-4191-9631-29a91f257bbc'), -- TALLER PARA LA APLICACIÓN DEL SISST
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', '620b3001-7f03-46dc-8112-eedde065ebbe'), -- TALLER PARA LA APLICACIÓN DEL SISTEMA VIGIA
-    ('00e87e59-9e3a-47d1-9c8b-fc480e3c65e4', 'bfd4eb60-7fef-4631-80f0-0e3cb81e99ca'), -- TECNICAS DE INSTRUCCION GRUPALES
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '6418d259-e5d4-413f-9a44-b4b7b6d26aa8'), -- TECNICAS DE NEGOCIACION
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '891b87ca-200e-4ca4-be18-fbe6251bd78e'), -- TECNICAS DE NEGOCIACIÓN Y MARKETING
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'f4fbfd14-bbe5-4ea2-aa3f-c6dbe866062c'), -- TÉCNICAS DE SUPERVISIÓN
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'be38d906-b27d-401e-bcc0-ef02f5cab55f'), -- TRABAJO EN EQUIPO
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '2e7c0a46-b8a3-4eb7-9e3c-ac334792d931'), -- TRANSPARENCIA Y ACCESO A LA INFORMACION PUBLICA PARTE I (AUTODIRIGIDO)
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '2c4e32cc-bb01-4400-8575-9eb59af6aac8'), -- TRANSPARENCIA Y ACCESO A LA INFORMACION PUBLICA PARTE II (AUTODIRIGIDO)
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'fbfc8aca-f36d-450d-9755-24c5e7c0c20f'), -- TRANSPARENCIA Y ACCESO A LA INFORMACION PUBLICA PARTE III (AUTODIRIGIDO)
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '193cda76-95b6-442f-b2c9-f44e57ecb5dc'), -- TRASCENDER Y TRANSFORMAR
-    ('00e87e59-9e3a-47d1-9c8b-fc480e3c65e4', '036c3d13-a747-4a24-9d91-c46e223a92cc'), -- DESARROLLO DE CURSOS DE FORMACIÓN EN LINEA CON BASE EN EL ESTANDAR DE COMPETENCIA EC0366
-    ('0c0679b9-0f4c-48b4-8ea3-969ac721fab7', '0b817fe8-2739-4c95-abe4-04ed346819e3'), -- DISEÑO DE CURSOS DE CAPACITACIÓN PRESENCIALES CON BASE EN EL ESTÁNDAR DE COMPETENCIA EC0301
-    ('00e87e59-9e3a-47d1-9c8b-fc480e3c65e4', '81367a22-b8c6-4b33-a2f1-10795b7455f6'), -- EVALUACIÓN EN EL ESTANDAR EC0217 IMPARTICIÓN DE CURSOS DE FORMACIÓN DEL CAPITAL HUMANO DE MANERA PRESENCIAL GRUPAL
-    ('00e87e59-9e3a-47d1-9c8b-fc480e3c65e4', '6ed7f824-eb99-4ef2-9f2e-136a7cb1e1cf'), -- FORMACIÓN DE INSTRUCTORES CON BASE EN EL ESTÁNDAR DE COMPETENCIA EC0217.01
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'dde2bb4c-3396-409c-9564-54c26f599456'), -- FORMULACIÓN DEL PRESUPUESTO DE CAJA Y DEVENGABLE
-    ('00e87e59-9e3a-47d1-9c8b-fc480e3c65e4', '9a00ad80-6415-4bf3-b86e-7acef1302cbe'), -- PROCESO DE EVALUACIÓN PARA CERTIFICACIÓN DE INSTRUCTORES EN EL ESTÁNDAR DE COMPETENCIA EC0217.01
-    ('0c0679b9-0f4c-48b4-8ea3-969ac721fab7', '946e2b28-761e-4820-9d11-fa13348bf347'), -- PROCESO DE EVALUACIÓN PARA CERTIFICACIÓN EN DISEÑO DE CURSOS DE CAPACITACIÓN PRESENCIALES EN EL ESTÁNDAR DE COPMPETENCIA EC0301
-    ('00e87e59-9e3a-47d1-9c8b-fc480e3c65e4', '33376466-9e9e-4875-aac7-ae5eac8630c3'), -- PROCESO DE EVALUACIÓN PARA CETIFICACIÓN EN DESARROLLO DE CURSOS DE FORMACIÓN EN LINEA EN EL ESTÁNDAR DE COMPETENCIA EC0366
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', '5eb4d4a9-2728-488f-98f4-8fb62e5189d7'), -- SUPERVISION DEL PROCESO DE TESORERIA SISTEMA SAP
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '390225a6-5ced-4248-9ff0-d356885ddb8e'), -- ADMINISTRACIÓN DEL TIEMPO
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'fc8075f5-0715-45e9-983c-031514a4ef9d'), -- COMPORTAMIENTO HUMANO EN LAS ORGANIZACIONES
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'ddee8df5-4730-44ad-8c9e-41579ea1df0e'), -- COMPORTAMIENTO PROACTIVO EN EL TRABAJO
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '0adfbfa9-d0cc-46ed-ac0f-2ac22676951e'), -- DIPLOMADO EN ALTA DIRECCIÓN MÓDULO I (COACHING EJECUTIVO)
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'b73437e9-b0e7-42f6-bfdc-4590cb5b0e65'), -- DIPLOMADO EN ALTA DIRECCIÓN MÓDULO II (COMUNICACIÓN)
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '710f8728-d7f9-4a32-a380-0b9dddb0e3c6'), -- DIPLOMADO EN ALTA DIRECCIÓN MÓDULO III (PLANEACIÓN Y PROYECTOS ESTRATÉGICOS)
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '58948883-535c-4f17-abed-dfc7af7d9bc1'), -- DIPLOMADO EN ALTA DIRECCIÓN MÓDULO IV (ÉTICA GERENCIAL)
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', '5c808d4e-b8b6-4e8c-9d42-4db3d54dd7b9'), -- DIPLOMADO EN DESARROLLO DE HABILIDADES PARA ASISTENTES EJECUTIVAS MÓDULO I (ASISTENTES EJECUTIVAS DE EXCELENCIA)
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '5afc0d7b-66fe-4068-838b-7e5f9dcc01d8'), -- DIPLOMADO EN DESARROLLO DE HABILIDADES PARA ASISTENTES EJECUTIVAS MÓDULO II (ADMINISTRACIÓN Y COMUNICACIÓN)
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'dab2ce4c-2b1e-4dcd-9656-c8545d133d6d'), -- DIPLOMADO EN DESARROLLO DE HABILIDADES PARA ASISTENTES EJECUTIVAS MÓDULO III (ARCHIVONOMIA E IMAGEN CORPORATIVA)
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '2d019e9d-fe1e-4f3f-a611-67f511ede67b'), -- DIPLOMADO EN DESARROLLO DE HABILIDADES PARA ASISTENTES EJECUTIVAS MÓDULO III (SALUD Y BELLEZA)
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '6e6996e4-14e0-453f-812b-260543d7dd88'), -- DIPLOMADO EN DESARROLLO DE HABILIDADES PARA ASISTENTES EJECUTIVAS MÓDULO IV (ARCHIVONOMÍA)
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'c10d1d73-dde3-4092-b416-8f2954650247'), -- DIPLOMADO EN DESARROLLO HUMANO MÓDULO I (FUNDAMENTOS DEL DESARROLLO HUMANO)
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '6c7389a5-29e0-4641-9b7b-a39b8677a167'), -- DIPLOMADO EN DESARROLLO HUMANO MÓDULO II (COMUNICACIÓN)
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'af932c67-ad83-409a-86cd-f8d54b1802af'), -- DIPLOMADO EN DESARROLLO HUMANO MÓDULO III (ÉTICA Y VALORES)
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '690e6202-0d7a-4f93-a37d-989501378ead'), -- DIPLOMADO EN DESARROLLO HUMANO MÓDULO IV
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'cdd03831-081f-4edd-8e4b-80186d10f474'), -- DIPLOMADO EN DESARROLLO HUMANO MÓDULO IV (LA PERSONA SU FAMILIA Y EL TRABAJO)
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '459a657b-7ab6-46a0-9d9b-b46bf67d9da3'), -- DIPLOMADO EN FORMACIÓN DE MANDOS MEDIOS MODULO I (COMUNICACIÓN INTERPERSONAL)
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'ef2eb541-2665-4237-8405-4f1907f3dfff'), -- DIPLOMADO EN FORMACIÓN DE MANDOS MEDIOS MODULO II (TOMA DE DECISIONES Y LIDERAZGO)
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'cba51212-3cba-4e88-a2dc-6ef7cc09d13d'), -- DIPLOMADO EN FORMACIÓN DE MANDOS MEDIOS MODULO III (DIRECCIÓN DE EQUIPOS Y ADMINISTRACIÓN DE PROYECTOS)
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'f0c77ed6-f501-4345-a988-ee202d93cb6f'), -- DIPLOMADO EN FORMACIÓN DE MANDOS MEDIOS MÓDULO IV
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'fc31a3ec-569e-4e70-be80-9fee410060ba'), -- DIPLOMADO EN FORMACIÓN DE MANDOS MEDIOS MODULO IV (FUNCIÓN FINANCIERA DE LA EMPRESA)
-    ('0c0679b9-0f4c-48b4-8ea3-969ac721fab7', '0fe99d9b-fc8a-4422-99f5-57e12fd4ad8f'), -- DISEÑO DE CURSOS DE CAPACITACIÓN
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'aa39efb9-00bc-4ede-95d1-c4207c3f216d'), -- EL ARTE DEL SERVICIO AL CLIENTE CON METODOLOGÍA DISNEY
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '0307459c-1879-474a-bfff-a33c8cb94a84'), -- EMPODERAMIENTO, LIDERAZGO Y RETROALIMENTACIONES ASERTIVAS
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '7916a691-0263-43a6-bc4a-9ceeb2a92ed0'), -- IMPARTICIÓN DE CURSOS DE CAPACITACIÓN
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '3fa724ed-51d9-422e-8148-f627802704c2'), -- INTEGRACIÓN DE EQUIPOS DE TRABAJO
-    ('6a625a56-5bc2-4518-90ff-8a217b43af2e', 'fd11e382-995b-4c65-b452-af99a5bda3ba'), -- INTELIGENCIA EMOCIONAL Y CONTROL DEL ESTRÉS
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'f977a48b-ef94-4fd2-8556-1cf495851cd6'), -- INTRODUCCIÓN A FUNDAMENTOS DEL DESEMPEÑO HUMANO
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'acc4f04a-9166-4894-97b9-9e1162b2d630'),
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '6016220c-45d1-4387-83d0-fe81d196776f'), -- LIDERAZGO CENTRADO EN PRINCIPIOS
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'fd033690-0c6e-4b4e-9af8-221481c900bf'), -- MANEJO DE CONFLICTOS
-    ('6a625a56-5bc2-4518-90ff-8a217b43af2e', 'c43fcede-0b29-4d58-9c76-47b6e99fdc6d'), -- MANEJO Y CONTROL DE ESTRÉS
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '173fa035-6bb1-498b-8470-8cd80833b625'), -- PROYECTO EMPRENDEDOR HACIA UNA NUEVA ETAPA DE VIDA
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '9a0d4c7e-9b28-476c-bc4e-1b203cd8aa48'), -- TALLER PARA EL DESARROLLO DE HABILIDADES PARA ASISTENTES EJECUTIVAS
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '8803fa82-8077-4980-b0cf-a2cbff1831e0'), -- TECNICAS DE COMO HABLAR EN PUBLICO Y VENCER EL MIEDO ANTE LOS DEMAS
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'd94f1558-894e-46c1-9bac-ddea0e90f380'), -- TÉCNICAS DE COMO HABLAR EN PÚBLICO Y VENCER EL MIEDO ANTE LOS DEMAS
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '6e594e3a-5c87-4b81-af11-63bfd2d6ea0b'), -- TÉCNICAS DE NEGOCIACIÓN Y MANEJO DE CONFLICTOS
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'eccafeb1-5417-49da-9931-f6015271499a'), -- TÉCNICAS DE SUPERVISIÓN
-    ('dbdf929f-8ff3-415b-bc37-46cefc97e3a1', '2194a0ba-f2ae-4c7a-83fc-1d918938db33'), -- ADMINISTRACIÓN DE LOS CONTRATOS EN MATERIA DE OBRA Y SERVICIOS RELACIONADOS
-    ('dbdf929f-8ff3-415b-bc37-46cefc97e3a1', 'f795bd16-6f76-4d73-8a0d-5891e9fe4489'), -- DISPOSICIONES GENERALES EN MATERIA DE OBRA DE C.F.E. Y SUS EMPRESAS PRODUCTIVAS SUBSIDIARIAS
-    ('dbdf929f-8ff3-415b-bc37-46cefc97e3a1', 'c4db6cea-8b9d-4075-a303-0276c9d2e1b3'), -- ELABORACIÓN DE PROYECTOS EJECUTIVOS PARA CONTRATAR OBRA
-    ('dbdf929f-8ff3-415b-bc37-46cefc97e3a1', 'a8c6a56e-b64e-4505-9490-d0fa8dce5ef0'), -- TALLER DE AJUSTES DE COSTOS Y PRECIOS UNITARIOS
-    ('dbdf929f-8ff3-415b-bc37-46cefc97e3a1', '37788e20-56ca-4197-b021-be912631af67'), -- TALLER DE COSTOS Y PRECIOS UNITARIOS
-    ('dbdf929f-8ff3-415b-bc37-46cefc97e3a1', '10d165db-3866-4b2a-9201-3f40800d5891'), -- TALLER DE EVALUACIÓN DE OFERTAS EN LICITACIONES DE OBRA Y SERVICIOS
-    ('dbdf929f-8ff3-415b-bc37-46cefc97e3a1', '5efd6e46-509d-44ee-b16f-1a386918bb1b'), -- TALLER DE MANEJO Y EJECUCIÓN DE OBRAY SERVICIOS
-    ('dbdf929f-8ff3-415b-bc37-46cefc97e3a1', '1227643f-bf9c-4fbb-9e4c-e0320dd03700'), -- ANÁLISIS DE RIESGO EN SITIO Y REUNIÓN INICIO DE MANIOBRA
-    ('ef71f035-6c5f-4d7d-8d1c-1f021d62f185', 'e013bcd8-48a6-412b-b7a3-ace61a40196e'), -- CATALOGO DE MATERIALES NORMALIZADOS DE LA INDUSTRIA ELECTRICA
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '2c656c83-d79a-4aad-aed3-38f988f3be41'), -- CONOCIMIENTOS BASICOS EJECUCIÓN DEL MANTENIMIENTO A LÍNEAS Y REDES AÉREAS DE DISTRIBUCIÓN EN MEDIA Y BAJA TENSIÓN. E1-0031.02
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '2b2e4a8e-04ae-4e3e-91f5-7c4a7f206ff2'), -- CONOCIMIENTOS GEOGRAFICOS DE CIRCUITOS
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '3262cbac-df05-4839-b648-b5b3d45ca0ec'), -- DETECCIÓN DE FALLAS EN REDES SUBTERRÁNEAS
-    ('6bc5711a-f368-4bf2-8182-9e475c0f26a6', '27fce49e-fddf-41db-9e2b-40194da6166c'), -- DIAGNÓSTICO DE FALLAS EN TRANSFORMADORES DE DISTRIBUCIÓN
-    ('6bc5711a-f368-4bf2-8182-9e475c0f26a6', '3cefa512-4811-4cf7-aae9-349b50f9d46a'), -- DISEÑO DE SUBESTACIONES
-    ('bb93e7a5-872a-4928-972b-cb04e1fe1389', '2a5cebeb-ee6e-4657-a6f6-8664f7d4a990'), -- ELABORACIÓN DE ACCESORIOS PARA SISTEMAS DE DISTRIBUCIÓN SUBTERRÁNEO. LLV.
-    ('6bc5711a-f368-4bf2-8182-9e475c0f26a6', '4cfb7d0d-272c-4d16-981a-0f4974e8e208'), -- FUNDAMENTOS DE BANCO DE CAPACITORES, UTILIZACION Y OPERACIÓN EN LINEAS DE MT DE DISTRIBUCION
-    ('6bc5711a-f368-4bf2-8182-9e475c0f26a6', '05aa4df9-fbac-4ab4-8db0-f2f681f82854'), -- FUNDAMENTOS DE PROTECCIONES PARA SUBESTACIONES I
-    ('6bc5711a-f368-4bf2-8182-9e475c0f26a6', '6590452e-bed7-474d-a20f-150c1d4c6c88'), -- FUNDAMENTOS DE PROTECCIONES PARA SUBESTACIONES II
-    ('bb93e7a5-872a-4928-972b-cb04e1fe1389', '7f18953a-43b3-41df-8cd5-93be74008566'), -- FUNDAMENTOS DE REDES DE DISTRIBUCIÓN
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '7e9c2908-fe45-44d7-a26f-8aa2bc73e80e'), -- FUNDAMENTOS DEL REGLAMENTO DE SEGURIDAD E HIGIENE CAPITULO 100 DISTRIBUCIÓN PARA PERSONAL DE OFICINA
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '762afbdd-f48c-435d-9edd-a5a19159a152'), -- FUNDAMENTOS PARA EL MANTENIMIENTO Y REPARACIÓN DE PÉRTIGAS AISLADAS
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'cedb7f97-2c4e-4bd3-ab2e-82ef26a148c0'), -- FUNDAMENTOS TEORICOS DE SISTEMAS DE TIERRA
-    ('6bc5711a-f368-4bf2-8182-9e475c0f26a6', 'cd792bd5-6732-4ba8-a149-880354db8788'), -- IDENTIFICACIÓN DE EQUIPO EN SUBESTACIONES (CUCHILLAS, INTERRUPTORES, NOMENCLATURA).
-    ('bb93e7a5-872a-4928-972b-cb04e1fe1389', '12e7c654-83ce-4e0f-b154-5032220a4c7d'), -- INSTRUCTIVO TECNICO DE PODA DE ARBOLES Y LIMPIEZA DE BRECHA EN LINEAS Y REDES DE DISTRIBUCION
-    ('6bc5711a-f368-4bf2-8182-9e475c0f26a6', '99082004-4298-4ee9-8278-88e40b3e4722'), -- MANIOBRAS DE SUBESTACIONES EN CAMPO
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'd9491e5e-6695-4fe4-970f-6abd3f39e076'), -- MANUAL REGULATORIO DE COORDINACIÓN OPERATIVA
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'f5eea127-c33e-4e25-9f27-68e5bda423ed'), -- NORMAS DE CONSTRUCCIÓN SUBTERRANEAS
-    ('6bc5711a-f368-4bf2-8182-9e475c0f26a6', '575fd62f-61ed-436a-b6db-5e936a53ab17'), -- OPERACION Y MANEJO DE RESTAURADORES
-    ('9a0ea466-4018-4538-8e2d-3f36c2549ac6', '871ef39b-bafa-4051-a88a-7c6c96ff3362'), -- PRINCIPIOS DE PROTECCIONES ELECTRICAS
-    ('ce395726-35ab-4e3e-82d1-01df7444d975', '5d6ff8b3-c296-40ec-841d-58fb8d27e5f6'), -- PROTECCION CATODICA Y RECUBRIMIENTOS ANTICORROSIVOS EN ESTRUCTURAS METALICAS
-    ('81e8ea96-d5da-4a87-9ef9-aebbfae1ee17', '22ec7c04-c90f-4e38-b7f8-23eb62333c42'), -- PROTOCOLO DE COMUNICACIONES DNP3 (DISTRIBUCION)
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'ccb7e1c2-2af7-498d-9008-60297cae8161'), -- PROTOCOLOS DE COMUNICACIÓN DE DATOS
-    ('bb93e7a5-872a-4928-972b-cb04e1fe1389', '478061ab-930c-461e-9069-382947ea0ecf'), -- PRUEBAS DE PUESTA EN SERVICIO Y LOCALIZACIÓN DE FALLAS EN INSTALACIONES DE DISTRIBUCIÓN SUBTERRÁNEA
-    ('bb93e7a5-872a-4928-972b-cb04e1fe1389', '911a7c2a-fbb8-4b41-90ba-e3b8854943fc'), -- REDES DE DISTRIBUCIÓN SUBTERRÁNEA
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '907905d1-a8d9-4bc1-9154-7218598731e0'), -- REGLAMENTO DE SEGURIDAD E HIGIENE CAPITULO 100 DISTRIBUCIÓN PARA PERSONAL DE CAMPO
-    ('bb93e7a5-872a-4928-972b-cb04e1fe1389', '9dc11015-125a-4152-92ff-7dd28d505537'), -- TRABAJOS EN LÍNEAS ENERGIZADAS AISLADO SOBRE AISLADO LELV
-    ('bb93e7a5-872a-4928-972b-cb04e1fe1389', '56110858-0a21-4415-8a1f-3dad1af5a630'), -- INSPECCIÓN Y MANTENIMIENTO A LÍNEAS Y REDES DE DISTRIBUCIÓN (TRABAJOS EN LÍNEA ENERGIZADA SEGUNDA ETAPA)
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '088cf325-613d-482a-b31f-f4e8aba8745b'), -- TRABAJOS EN ESPACIOS CONFINADOS
-    ('ef71f035-6c5f-4d7d-8d1c-1f021d62f185', 'e1705346-130a-4799-b263-062abb19ceb8'), -- CALIDAD DE LA POTENCIA ELÉCTRICA PARA CFE DISTRIBUCIÓN
-    ('bb93e7a5-872a-4928-972b-cb04e1fe1389', '885ad5d0-305b-4452-a6c0-deb5fe9becc3'), -- ELABORACIÓN DE EMPALMES Y TERMINALES EN REDES SUBTERRÁNEAS MT Y AT
-    ('f920ef26-66a1-4922-815d-8f9ed52e1870', '6a872850-a5e1-4e01-b92a-0a0f53814960'), -- MANIOBRA DE HOMBRE SOLO PARA LA ATENCIÓN DE CONEXIÓN DE SUMINISTROS Y DE SOLICITUDES DEL PROCESO DE COMERCIALIZACIÓN
-    ('dbdf929f-8ff3-415b-bc37-46cefc97e3a1', 'c8c32936-6cd0-41f7-8c76-27bac267acf3'), -- MANIOBRA DE HOMBRE SOLO PARA LA ATENCIÓN DE MANIOBRAS EN REPOSICIÓN DE FUSIBLES
-    ('6bc5711a-f368-4bf2-8182-9e475c0f26a6', 'cd2bf6b3-f87d-4e6e-91ec-31188de2803c'), -- MANIOBRAS PARA LA INSTALACIÓN DE SUBESTACIONES MÓVILES
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '3ddf7030-cae1-4d0d-b125-bee38e13f00c'), -- PLAN DE CONTINGENCIAS Y FALLAS MAYORES
-    ('bb93e7a5-872a-4928-972b-cb04e1fe1389', '2d9e91cf-3a86-4b03-b1e6-922564b5ba3d'), -- PODA EN BAJA Y MEDIA TENSIÓN
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '92c7fcdc-6d8e-4417-8ec7-59fe813da9fe'), -- PROCEDIMIENTOS DE SEGURIDAD DEL SISTEMA INTEGRAL DE GESTIÓN
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '098d65c4-450e-4c47-bf02-1cba919652fe'), -- TOMA DE DECISIONES
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '8b64bcad-c982-42fd-b4ff-8d3298ca5169'), -- TRABAJOS EN ALTURAS, ACTIVIDADES QUE SALVAN VIDAS Y AISLADO SOBRE AISLADO
-    ('bb93e7a5-872a-4928-972b-cb04e1fe1389', '073c28ac-3b65-443c-890c-f98cb9f80f15'), -- USO Y CUIDADOS EN EL USO DEL ROMPECARGAS
-    ('f920ef26-66a1-4922-815d-8f9ed52e1870', 'd8142643-01e0-45e3-8c0e-b0818e8a409a'), -- CALIBRACION DE MEDIDORES EN LABORATORIO
-    ('f920ef26-66a1-4922-815d-8f9ed52e1870', '20d99c63-d556-4824-bb19-f0a4eb3152a3'), -- CURSO NACIONAL MEDICIÓN CONEXIONES Y SERVICIOS
-    ('f920ef26-66a1-4922-815d-8f9ed52e1870', '178e1c7a-1d27-4fd8-9ca4-3db8614328e7'), -- DETECCIÓN DE FALLAS DE MEDICIÓN, FACTURACIÓN Y USOS ILÍCITOS
-    ('f920ef26-66a1-4922-815d-8f9ed52e1870', 'f0f92021-2850-41e9-a31a-66af6ff37bd8'), -- ELECTRICIDAD APLICADA A LA MEDICIÓN I
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'ea6a8a6e-7259-4f99-b915-5a80448ab302'), -- EQUIPOS DE INSPECCIÓN Y PRUEBA I
-    ('f920ef26-66a1-4922-815d-8f9ed52e1870', '9421a29a-506e-413c-a3d1-81bf581bd3e4'), -- ESPECIFICACIONES DE MEDICIÓN
-    ('f920ef26-66a1-4922-815d-8f9ed52e1870', '3a529c41-24ef-4edf-8706-67ce360c833f'), -- ESPECIFICACIONES DE MEDICIÓN I
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '50236eae-24ed-4c0a-90f3-f2f1dcad358a'), -- FUENTES DE ENERGÍA DISTRIBUÍDA
-    ('ef71f035-6c5f-4d7d-8d1c-1f021d62f185', 'ab3beb9d-daae-4bef-9478-3bd8f28ead82'), -- IDENTIFICACIÓN DE EQUIPOS ELÉCTRICOS
-    ('bb93e7a5-872a-4928-972b-cb04e1fe1389', '8609b268-ceed-40d5-8b24-cfc4693f9766'), -- INSPECCIÓN Y MANTENIMIENTO A REDES ENERGIZADAS
-    ('ef71f035-6c5f-4d7d-8d1c-1f021d62f185', '1f29e77a-0e45-4add-b093-12b3ad059d33'), -- INTERPRETACIÓN DE DIAGRAMAS UNIFILARES
-    ('f920ef26-66a1-4922-815d-8f9ed52e1870', '388192c4-57f5-416f-923d-dbe3b0fc0877'), -- INTRODUCCIÓN A LA CONFIGURACIÓN DE PARAMETROS A MEDIDORES
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '78ed807b-2918-4138-bbc2-ab8f3b9f2a11'), -- MANEJO DE EQUIPO HIDRÁULICO Y FUNCIONAMIENTO
-    ('f920ef26-66a1-4922-815d-8f9ed52e1870', '21932acd-fd46-441c-9ac5-6b80355ab01a'), -- MANIOBRA DE HOMBRE SOLO PARA LA ATENCIÓN DE MANIOBRAS DE BAJA TENSIÓN EN ACOMETIDAS
-    ('dbdf929f-8ff3-415b-bc37-46cefc97e3a1', 'a3cadf38-6891-461b-8f01-56eda0906ec0'), -- MANIOBRA DE HOMBRE SOLO PARA LA ATENCIÓN DE REPOSICIÓN DE LINEAS EN BAJA Y MEDIA TENSIÓN DESENERGIZADAS
-    ('f920ef26-66a1-4922-815d-8f9ed52e1870', '08041a79-547d-4f5b-9463-2fc89eb10167'), -- MEDIDORES DE ENERGÍA I
-    ('bb93e7a5-872a-4928-972b-cb04e1fe1389', 'b1550763-fe0b-4853-b50a-ac272f96d351'), -- NORMAS DE DISTRIBUCIÓN AÉREAS I
-    ('bb93e7a5-872a-4928-972b-cb04e1fe1389', '9eb1b633-f6cc-4f11-98bb-e16f67fe97b7'), -- NORMAS DE DISTRIBUCIÓN SUBETERRANEAS I
-    ('f920ef26-66a1-4922-815d-8f9ed52e1870', 'cf8f5964-ebdd-4184-a526-6acefaa137bb'), -- OPERACIÓN DEL SISTEMA DE CONTROL Y ADMINISTRACIÓN DE MEDIDORES Y SELLOS (SIAMED/SAS) I
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '7c6de713-e276-45d8-9aa6-3c221d436317'), -- ORIENTACIÓN Y REQUISITOS PREVIOS A LA CONTRATACIÓN
-    ('ef71f035-6c5f-4d7d-8d1c-1f021d62f185', 'f576c3a6-a176-44fa-b26d-878a39b48cdc'), -- PROCEDIMIENTO PARA LA ATENCIÓN DE SOLICITUDES DE SERVICIO DE ENERGÍA ELÉCTRICA Y NORMATIVIDAD APLICABLE I
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '0db50664-fab1-48db-aff0-3cb002749404'), -- PRUEBAS DE RELACIÓN DE TRANSFORMACIÓN, AISLAMIENTO Y POLARIDAD A TRANSFORMADORES DE INSTRUMENTOS I
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '1476e82d-9d8e-42f4-bdc4-2d050dd5f1b5'), -- PRUEBAS DE SUMINISTRO MEDIDOS EN BAJA TENSIÓN
-    ('f920ef26-66a1-4922-815d-8f9ed52e1870', '4314794e-2cc4-43b6-8e47-1e2317cb66da'), -- PRUEBAS FUNCIONALES A MEDIDORES ELECTRÓNICOS DE AUTOGESTION
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', 'a9a156e8-396e-4223-85d2-f6b80c71b5ed'), -- RESCATE DE LINIERO ACCIDENTADO
-    ('f920ef26-66a1-4922-815d-8f9ed52e1870', '4aaaf2c5-f813-4d06-beb2-441a380df1b3'), -- SISTEMAS DE MEDICIÓN DE INFRAESTRUCTURA AVANZADA I
-    ('f920ef26-66a1-4922-815d-8f9ed52e1870', '90140a0d-b1dd-4ae0-8cff-633240aeb9a3'), -- TARIFAS ELÉCTRICAS II
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'f3d63b56-df40-4c46-8eca-6cf575c41e20'),
-    ('f920ef26-66a1-4922-815d-8f9ed52e1870', '140d932f-4910-40ed-bfbd-561abef764c5'), -- TRABAJO DE CONEXIÓN DE EQUIPOS DE MEDICIÓN MEDIDOS EN BAJA Y MEDIA TENSIÓN
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '77fa6c0c-19ca-451d-9daf-5c1941f5f9fa'), -- TRABAJO EN ALTURAS
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', 'ba21620c-a508-41b9-bc2a-f7251cfb8d74'), -- TRABAJOS EN ESPACIOS CONFINADOS
-    ('6bc5711a-f368-4bf2-8182-9e475c0f26a6', '8746ccb0-e68f-4a61-9aad-82694104ab0d'), -- TRANSFORMADORES DE DISTRIBUCION
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '142532af-dd04-4a26-8dbd-d949401e92c5'), -- TRANSFORMADORES DE MEDIDA
-    ('e4d0f81f-f9fa-429b-b403-91eea3cc6758', 'fb13dc9c-533b-4b6e-9bdf-0ee04e38a50f'), -- DESARROLLO DE PROYECTOS EN EL AMBITO AMBIENTAL
-    ('e4d0f81f-f9fa-429b-b403-91eea3cc6758', '92f24974-4bd1-4207-b815-05c9dca0fadf'), -- GESTION AMBIENTAL
-    ('e4d0f81f-f9fa-429b-b403-91eea3cc6758', 'c9e55515-b4a6-4123-9328-dcfa45eb29a9'), -- IMPACTO Y CULTURA AMBIENTAL
-    ('e4d0f81f-f9fa-429b-b403-91eea3cc6758', 'e961d00e-f16d-4c7a-a946-c722c15250f6'), -- INGENIERIA AMBIENTAL MODULO I (PROB. AMBIENTAL, PRINCIPIOS DE ECOLOGIA)
-    ('e4d0f81f-f9fa-429b-b403-91eea3cc6758', '11852479-bfb4-45b8-8e22-8b67dd7a76a9'), -- INGENIERIA AMBIENTAL MODULO II (BASES TECNICAS, MICROBIOLOGIA, TOXICOLOGIA, PROCESO Y OPERACIONES UNITARIAS
-    ('6a625a56-5bc2-4518-90ff-8a217b43af2e', '74d41a93-255a-4796-b4a6-6ab2b1d0a62e'), -- INGENIERIA AMBIENTAL MODULO III (AIRE, CONTROL DE PARTICULAS, COMBUSTION, AGUA QUIMICA BASICA)
-    ('ce395726-35ab-4e3e-82d1-01df7444d975', '8acb8f88-118f-4db9-89ac-7e7f8eabae36'), -- INGENIERIA AMBIENTAL MODULO IV (TRATAMIENTO DE AGUAS RESIDUALES)
-    ('e4d0f81f-f9fa-429b-b403-91eea3cc6758', '3b251f22-b1e9-4315-9ff9-56abe539b125'), -- INTRODUCCIÓN A LA LEGISLACIÓN AMBIENTAL EN EL SECTOR ELÉCTRICO
-    ('e4d0f81f-f9fa-429b-b403-91eea3cc6758', 'c5294cb5-8cf7-4940-85e4-2874560150e1'), -- MANEJO Y DISPOSICIÓN DE RESIDUOS
-    ('e4d0f81f-f9fa-429b-b403-91eea3cc6758', '32ceddb9-ae9e-4592-ac71-f8c61333fbf8'), -- SENSIBILIZACIÓN AMBIENTAL
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '1b1ecfb9-e43c-41d7-a4dd-c198652d4d97'), -- AHORRO DE ENERGÍA EN LOS ESPACIOS FAMILIAR Y LABORAL
-    ('ef71f035-6c5f-4d7d-8d1c-1f021d62f185', '3d47078d-fbe4-436f-a6e5-a159115b0636'), -- ALUMBRADO Y ESTUDIO DE ILUMINACION
-    ('ef71f035-6c5f-4d7d-8d1c-1f021d62f185', 'e376d5e5-9642-4815-baac-f763ea715d9e'), -- ELECTRICIDAD BÁSICA
-    ('ef71f035-6c5f-4d7d-8d1c-1f021d62f185', '273138f9-2def-4454-a852-9e896aa12ca3'), -- ELECTRICIDAD BÁSICA PARA MANTENIMIENTO ELÉCTRICO
-    ('ef71f035-6c5f-4d7d-8d1c-1f021d62f185', '8d4f1064-7e50-4216-87f8-1e9af4e97644'), -- ELECTRÓNICA DE POTENCIA
-    ('9a0ea466-4018-4538-8e2d-3f36c2549ac6', '342b45c9-7705-41a7-8293-11930fd85bcd'), -- FILOSOFIA DE PROTECCIONES A EQUIPO ELÉCTRICO
-    ('9a0ea466-4018-4538-8e2d-3f36c2549ac6', '1602b9f4-ab13-4c96-8c2f-47d829cc0e55'), -- FILOSOFIA Y PRINCIPIOS BASICOS DE PROTECCIONES MODULO 1
-    ('9a0ea466-4018-4538-8e2d-3f36c2549ac6', 'b9ee0d3e-bda4-4b7b-867e-e618aa9c6df8'), -- FILOSOFIA Y PRINCIPIOS BASICOS DE PROTECCIONES MODULO 2
-    ('9a0ea466-4018-4538-8e2d-3f36c2549ac6', '58e434a2-4f2e-496a-a201-3676ac33ca51'), -- FUNDAMENTOS DE FILOSOFIA DE PROTECCIONES A EQUIPO ELÉCTRICO
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', '74f9363d-1f55-44d9-88a9-4a6655c90869'), -- FUNDAMENTOS PARA REPARACIÓN DE COJINETES
-    ('ef71f035-6c5f-4d7d-8d1c-1f021d62f185', '69b6b445-d236-44e7-ae9f-c8ee4477dff7'), -- INSTALACIONES ELECTRICAS RESIDENCIALES E INDUSTRIALES
-    ('6bc5711a-f368-4bf2-8182-9e475c0f26a6', '83bf7734-00b1-4931-8dea-0daaf802e9f2'), -- INTERPRETACION DE DIAGRAMAS UNIFILARES SIMPLIFICADOS DE SUBESTACIONES
-    ('6a625a56-5bc2-4518-90ff-8a217b43af2e', 'b677279d-0f41-4d54-8660-0ceac13d1a4f'), -- INTERPRETACIÓN DE ESQUEMAS DE CONTROL ELÉCTRICO
-    ('ef71f035-6c5f-4d7d-8d1c-1f021d62f185', 'f7300b75-aeb8-4e07-9f59-3e2ee106fd6c'), -- INTRODUCCIÓN A LOS ARRANCADORES ELÉCTRICOS PARA MOTORES DE C.A.
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', 'b4b4bde8-fd8f-4a1a-9727-6115f490269b'), -- LUBRICACIÓN DE RODAMIENTOS
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '3433b895-7f49-4d0e-bba5-2ba2e22dbb16'), -- MANEJO Y USO DEL EQUIPO DE PRUEBA MARCA DOBLE ENGINEERING MODELO M-4000
-    ('6bc5711a-f368-4bf2-8182-9e475c0f26a6', 'af08b852-69b1-4b3b-a0c2-31cf843f3c08'), -- MANTENIMIENTO A INTERRUPTORES DE BAJA TENSIÓN
-    ('ef71f035-6c5f-4d7d-8d1c-1f021d62f185', 'eec8ca36-c5d8-4f7b-a50c-34c5bd6c1ab5'), -- MANTENIMIENTO BASADO EN CONDICION A GENERADORES ELECTRICOS
-    ('ef71f035-6c5f-4d7d-8d1c-1f021d62f185', '8738b74c-8326-4105-a80e-1221cc347069'), -- MANTENIMIENTO BASADO EN CONDICIÓN A MOTORES ELÉCTRICOS
-    ('6bc5711a-f368-4bf2-8182-9e475c0f26a6', 'dee7271e-4b08-40ec-a135-08e2978fe618'), -- MANTENIMIENTO BASADO EN CONDICION A TRANSFORMADORES DE POTENCIA
-    ('ef71f035-6c5f-4d7d-8d1c-1f021d62f185', 'b52d5f6a-010a-4e9b-896f-80b7bc643fa5'), -- MANTENIMIENTO PREDICTIVO MEDIANTE TERMOGRAFÍA
-    ('6bc5711a-f368-4bf2-8182-9e475c0f26a6', '551935d3-b7d2-4310-995b-b1f3ce67e5d3'), -- MANTENIMIENTO Y PRUEBAS A INTERRUPTORES
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'fc4a9de2-dc6d-4639-baf5-3bd525950e72'), -- MANTENIMIENTO Y PRUEBAS A ROTORES DE TURBOGENERADORES
-    ('6bc5711a-f368-4bf2-8182-9e475c0f26a6', '82d98763-865b-4aa0-91b1-c3728dc64c8c'), -- MANTENIMIENTO Y PRUEBAS A TRANSFORMADORES
-    ('fb0e0890-4779-4410-be3e-312ab212763a', '3cb2483d-5ee4-4d81-910d-06d760b8879d'), -- MANTENIMIENTO Y PRUEBAS DE GENERADORES ELÉCTRICOS DE CENTRALES TERMOELÉCTRICAS
-    ('ef71f035-6c5f-4d7d-8d1c-1f021d62f185', '336f3c1e-bfe4-4e18-93ac-2b1eda61e9f4'), -- MANTENIMIENTO Y PRUEBAS DE MOTORES ELÉCTRICOS
-    ('fb0e0890-4779-4410-be3e-312ab212763a', 'cde97eea-974d-4bb6-b8f0-a05a685dd045'), -- MERCADO ELECTRICO MAYORISTA Y BASES DEL MEM
-    ('ef71f035-6c5f-4d7d-8d1c-1f021d62f185', '5dee3163-27af-4503-9f2e-4faa9034fb61'), -- MOTORES ELECTRICOS
-    ('ef71f035-6c5f-4d7d-8d1c-1f021d62f185', 'de231c50-bfa9-4972-bbcb-8487a651c1bd'), -- NORMATIVIDAD DEL SECTOR ELECTRICO: LEY IND. ELECTRICA - REGLAMENTO - LEY DE CFE
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', '2a6ff02b-2adb-4fa8-adec-d119f13609e3'), -- OPERACIÓN Y MANTENIMIENTO A EQUIPOS DE AIRE ACONDICIONADO
-    ('ef71f035-6c5f-4d7d-8d1c-1f021d62f185', 'feae388a-27e9-4e17-bc30-e7ad529f2f35'), -- OPERACIÓN Y MANTENIMIENTO DE ARRANCADORES MAGNÉTICOS Y ELECTRÓNICOS
-    ('ef71f035-6c5f-4d7d-8d1c-1f021d62f185', 'c5abc2f0-6adf-48d0-80db-bf7b427c33c9'), -- OPERACIÓN Y MANTENIMIENTO DE BANCO DE BATERÍAS Y CARGADORES
-    ('ef71f035-6c5f-4d7d-8d1c-1f021d62f185', '6487f20d-7c56-4e35-8643-2ba47adf8b42'), -- OPERACIÓN, MANTENIMIENTO Y PRUEBAS DE GENERADORES ELÉCTRICOS
-    ('ef71f035-6c5f-4d7d-8d1c-1f021d62f185', 'f4eb1a7a-20ae-4399-ad43-73e7617fecd6'), -- PRINCIPIOS DE ELECTRICIDAD
-    ('ef71f035-6c5f-4d7d-8d1c-1f021d62f185', 'd3e9f377-4f9d-461b-b0fb-aa028c3db026'), -- PRINCIPIOS DE INSTALACIONES ELECTRICAS
-    ('ef71f035-6c5f-4d7d-8d1c-1f021d62f185', '89c1f367-d6b5-49e4-8b9c-93b9f41046e4'), -- PRINCIPIOS DE OPERACIÓN Y MANTENIMIENTO A MOTORES ELÉCTRICOS
-    ('9a0ea466-4018-4538-8e2d-3f36c2549ac6', '2d13262c-85ec-44e8-801b-a1765be63042'), -- PROTECCIONES A GENERADOR ELÉCTRICO
-    ('ef71f035-6c5f-4d7d-8d1c-1f021d62f185', '597ebbcb-9559-48ba-929d-005f2ee018ee'), -- PRUEBAS PRIMARIAS A EQUIPO ELÉCTRICO (MANEJO DEL EQUIPO DE PRUEBA M-4000)
-    ('ef71f035-6c5f-4d7d-8d1c-1f021d62f185', '5d8812d6-c9c7-4f2e-ad01-12c836ca93a2'), -- REDES DE TIERRAS
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', 'aa2bf3cf-e480-4036-903c-2a31d610cdcb'), -- REFRIGERACIÓN PARA TÉCNICOS
-    ('ef71f035-6c5f-4d7d-8d1c-1f021d62f185', '9f053d46-d7a0-4e0d-b4f9-e223c75b991d'), -- REGULADORES AUTOMÁTICOS DE VOLTAJE
-    ('ef71f035-6c5f-4d7d-8d1c-1f021d62f185', 'bd25dad3-2f0d-4e76-9c35-9b303f21c01a'), -- TÉCNICAS DE PRUEBA A EQUIPO ELÉCTRICO PRIMARIO
-    ('ef71f035-6c5f-4d7d-8d1c-1f021d62f185', 'cb5b2b38-fabf-4808-bfa3-85e9b606b206'), -- TERMOGRAFÍA APLICADA A EQUIPOS ELÉCTRICOS
-    ('ef71f035-6c5f-4d7d-8d1c-1f021d62f185', '174267f2-9aa6-4c2d-95dd-86f03c3d5b91'), -- TERMOGRAFÍA I (FUNDAMENTOS Y ANÁLISIS CUALITATIVO)
-    ('ef71f035-6c5f-4d7d-8d1c-1f021d62f185', 'c66a3383-2cb3-48cf-a1c9-cf47eb9c30dc'), -- TERMOGRAFIA INFRARROJA
-    ('ef71f035-6c5f-4d7d-8d1c-1f021d62f185', 'f8e6d00d-1329-4b4e-b52b-b6e17be1335b'), -- TIPOS DE ARRANCADORES PARA MOTORES ELECTRICOS DE C.A.
-    ('81e8ea96-d5da-4a87-9ef9-aebbfae1ee17', 'f3654f2c-7bef-4299-a353-5cafe4f39b41'), -- CONOCIMIENTOS BÁSICOS PARA AYUDANTE TÉCNICO INSTRUMENTISTA
-    ('6a625a56-5bc2-4518-90ff-8a217b43af2e', '602c9f6c-b32a-444b-82ab-576005d4c673'), -- CONTROL APLICADO, ANALÓGICO Y DIGITAL DE CENTRALES TERMOELÉCTRICAS
-    ('81e8ea96-d5da-4a87-9ef9-aebbfae1ee17', 'c9ce5fb3-eaa8-4be3-a216-9f82db193cdb'), -- CONTROL DISTRIBUIDO (OVATION EMERSON)
-    ('6a625a56-5bc2-4518-90ff-8a217b43af2e', 'c036af0a-8b9f-446e-acf3-2871a6d2e2cf'), -- CONTROL Y PROTECCIÓN DE TURBINAS DE GAS
-    ('81e8ea96-d5da-4a87-9ef9-aebbfae1ee17', '50c98134-4146-499f-ba48-b167f9b2c93b'), -- CONTROLADORES DE AUTOMATIZACIÓN PROGRAMABLES MI: FUNDAMENTOS DE PROGRAMACIÓN
-    ('81e8ea96-d5da-4a87-9ef9-aebbfae1ee17', 'a555633d-630e-4439-9255-7c7b4d3aef56'), -- CONTROLADORES LOGICOS PROGRAMABLES
-    ('81e8ea96-d5da-4a87-9ef9-aebbfae1ee17', '5b3be836-1e6d-4f3c-8088-24d979f6bfc2'), -- CONTROLADORES LÓGICOS PROGRAMABLES (AVANZADO)
-    ('81e8ea96-d5da-4a87-9ef9-aebbfae1ee17', '2b96b424-f494-4eba-bac6-863c6fb590c4'), -- CONTROLADORES LÓGICOS PROGRAMABLES (BÁSICO)
-    ('81e8ea96-d5da-4a87-9ef9-aebbfae1ee17', 'da2e4793-a1f7-45cf-ac16-99130a7c9c35'), -- CONTROLADORES LOGICOS PROGRAMABLES (LOGO 8)
-    ('6a625a56-5bc2-4518-90ff-8a217b43af2e', '81e2e084-13ba-4761-86bb-70cff514ff8d'), -- CONTROLES LÓGICOS Y ANALÓGICOS APLICADOS
-    ('81e8ea96-d5da-4a87-9ef9-aebbfae1ee17', 'a2f6f1e4-ed9e-4d8a-bb17-d44a00104460'), -- DIASYS NETMATION DE MHI (CONTROL ELECTROHIDRAULICO)
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '49e74071-f6d0-45ee-a59b-462ec1860f00'), -- ELECTRÓNICA ANALÓGICA BÁSICA
-    ('81e8ea96-d5da-4a87-9ef9-aebbfae1ee17', '0037e7ff-d0c9-4acf-8a1b-87281bc1d9a8'), -- ELECTRÓNICA PARA INSTRUMENTISTAS MÓDULO I
-    ('f920ef26-66a1-4922-815d-8f9ed52e1870', 'e0b9cee4-92c7-48a6-83c3-0d682b2f4f8d'), -- FORMACIÓN DE INSTRUMENTISTAS MODULO I (FUNDAMENTOS DE MEDICIÓN, PRESIÓN & NIVEL)
-    ('81e8ea96-d5da-4a87-9ef9-aebbfae1ee17', '7f4e5b6d-d6f2-4836-8812-7eac597c58c8'), -- FORMACIÓN DE INSTRUMENTISTAS MODULO II (TEMPERATURA & FLUJO)
-    ('81e8ea96-d5da-4a87-9ef9-aebbfae1ee17', '7023626f-1bc5-4226-bee8-f0cd842a6485'), -- FORMACIÓN DE INSTRUMENTISTAS MODULO III (ELEMENTOS FINALES DE CONTROL & CONTROL AUTOMÁTICO)
-    ('81e8ea96-d5da-4a87-9ef9-aebbfae1ee17', 'f7b61cfb-beb2-4b2c-a932-29eff528f4d2'), -- FORMACIÓN DE INSTRUMENTISTAS MODULO IV (SINTONIZACIÓN DE CONTROLES DE PROCESO & SUPERVISORIO DE TURBINA)
-    ('0bd9feac-3310-42b7-be89-8606b2eb9e84', '98bba55d-b8ee-4094-8042-3106a429da83'), -- FUNDAMENTOS DE DOMÓTICA Y COMUNICACIONES INALÁMBRICAS
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '7152045d-f2dc-4215-aa65-bb2e52a2080c'), -- FUNDAMENTOS DE ELECTRÓNICA DIGITAL I
-    ('81e8ea96-d5da-4a87-9ef9-aebbfae1ee17', '88fa4441-eaf8-49f8-bdd9-5461a4d31e6d'), -- FUNDAMENTOS DE INSTRUMENTACIÓN ANALÍTICA
-    ('81e8ea96-d5da-4a87-9ef9-aebbfae1ee17', 'ce7bceb9-f195-4e55-9fc8-fe571b200929'), -- FUNDAMENTOS DE LA VARIABLE PRESIÓN
-    ('81e8ea96-d5da-4a87-9ef9-aebbfae1ee17', '87dcbbbb-cc0e-4679-88e8-e9e02ae33bd2'), -- INSTRUMENTACIÓN CONFIGURABLE
-    ('81e8ea96-d5da-4a87-9ef9-aebbfae1ee17', '9e09f43a-7bdb-4d8b-9122-1fce95b6420d'), -- INSTRUMENTACIÓN INTELIGENTE (CONFIGURACION)
-    ('f920ef26-66a1-4922-815d-8f9ed52e1870', '8f5e4926-4589-453e-acc8-5bc503b2238f'), -- INSTRUMENTACIÓN MI: FUNCIONES, FUNDAMENTOS, MEDICIÓN, DTI''S Y HOJAS DE LAZO
-    ('81e8ea96-d5da-4a87-9ef9-aebbfae1ee17', 'e4e3f662-b324-4389-a31a-78c20be9c5b7'), -- INSTRUMENTACIÓN MII: VARIABLES PRESIÓN, TEMPERATURA, NIVEL Y ANALÍTICAS
-    ('f920ef26-66a1-4922-815d-8f9ed52e1870', 'fbdc9f0e-a734-459f-b6b3-25f30e4ab21e'), -- INSTRUMENTACIÓN MIII: MEDICIÓN DE FLUJO
-    ('81e8ea96-d5da-4a87-9ef9-aebbfae1ee17', 'fc9f6b74-44c0-4e27-809e-2c328e572268'), -- INSTRUMENTACIÓN MIV: TEORÍA DE CONTROL
-    ('81e8ea96-d5da-4a87-9ef9-aebbfae1ee17', 'cdac6130-a254-474e-a39c-6aa4f3d38d37'), -- INSTRUMENTACIÓN MV: REGULACIÓN PRIMARIA Y SECUNDARIA
-    ('81e8ea96-d5da-4a87-9ef9-aebbfae1ee17', '565592f5-2332-4138-ba03-acf2650c8d88'), -- INSTRUMENTACIÓN VIRTUAL CON LABVIEW
-    ('81e8ea96-d5da-4a87-9ef9-aebbfae1ee17', 'a97546b1-f298-4d6f-84d1-48c07a39d9d8'), -- INTERPRETACIÓN DE DIAGRAMAS DE TUBERÍA E INSTRUMENTACIÓN
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', '25c56105-39c3-4658-8303-0b824aeccc36'), -- INTRODUCCIÓN A LA BITÁCORA ELECTRÓNICA
-    ('81e8ea96-d5da-4a87-9ef9-aebbfae1ee17', 'a937d763-39de-4c27-9030-a85851a0f1e1'), -- MARK VI DE GE (CONTROL DISTRIBUIDO)
-    ('81e8ea96-d5da-4a87-9ef9-aebbfae1ee17', 'fc596467-3227-42cd-ab3a-990cb798a919'), -- METROLOGÍA
-    ('81e8ea96-d5da-4a87-9ef9-aebbfae1ee17', '47d332a0-177a-4a2e-ad2a-cae8fa65941c'), -- METROLOGÍA I (TEMPERATURA)
-    ('81e8ea96-d5da-4a87-9ef9-aebbfae1ee17', 'e1c95dad-a50d-4649-a48c-ce93d60420d7'), -- METROLOGÍA II (PRESIÓN)
-    ('81e8ea96-d5da-4a87-9ef9-aebbfae1ee17', 'bf64ed8b-3385-4517-ba76-54ed96cadb00'), -- OVATION DE EMERSON (CONTROL DISTRIBUIDO)
-    ('81e8ea96-d5da-4a87-9ef9-aebbfae1ee17', '450126ec-9d86-4d26-b05c-a881bd6c1374'), -- PRINCIPIOS DE MATLAB APLICADO A CONTROL
-    ('81e8ea96-d5da-4a87-9ef9-aebbfae1ee17', 'f16c36bf-5f0a-4ffd-9cba-200339be456b'), -- PROGRAMACIÓN DE CONTROLADORES LÓGICOS PROGRAMABLES
-    ('81e8ea96-d5da-4a87-9ef9-aebbfae1ee17', '3a135f6b-fdc6-4d81-b1a2-af99eccc9c7e'), -- PROTOCOLOS DE COMUNICACIÓN INDUSTRIAL (HART, PROFIBUS, DNP3, MODBUS)
-    ('81e8ea96-d5da-4a87-9ef9-aebbfae1ee17', 'e0421b84-3e57-46aa-b484-d9847c76ed0b'), -- PROTOCOLOS DE COMUNICACIÓN INDUSTRIAL (PROTOCOLO ETHERNET TCP/IP Y PROFINET)
-    ('9a0ea466-4018-4538-8e2d-3f36c2549ac6', '8fe1048f-ad5f-424a-94f0-9143e589360e'), -- SISTEMA DE CONTROL ELECTROHIDRÁULICO Υ PROTECCIONES DEL TURBOGENERADOR
-    ('6a625a56-5bc2-4518-90ff-8a217b43af2e', 'a4d5560c-d569-4922-b629-9b4d50eb879d'), -- SUPERVISORIO DE TURBINA
-    ('81e8ea96-d5da-4a87-9ef9-aebbfae1ee17', '7a7c3bc7-5c7c-4bcd-bf74-efad988c4d8a'), -- T3000 DE SIEMENS (CONTROL DISTRIBUIDO)
-    ('6a625a56-5bc2-4518-90ff-8a217b43af2e', 'f9f6addb-68f5-4c07-a05d-9dabe7a17231'), -- TALLER DE MANTENIMIENTO A VÁLVULAS DE CONTROL
-    ('fb0e0890-4779-4410-be3e-312ab212763a', '74dca37b-8905-4e40-8657-2fc330aade5e'), -- AISLAMIENTO TÉRMICO PARA CENTRALES GENERADORAS
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', '20ff6867-169a-4829-a61c-3450065b6cbe'), -- ALINEACIÓN DE EJES DE MAQUINAS
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', '28915082-324d-4dfd-884a-9d5a1d7d611f'), -- ANÁLISIS DE DESEMPEÑO DE UNA BOMBA CENTRIFUGA
-    ('6a625a56-5bc2-4518-90ff-8a217b43af2e', '67cb6504-4904-4c17-94d5-160ad380b158'), -- ANÁLISIS DEL DESEMPEÑO DE UNA TURBINA DE VAPOR
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', '21ee6346-f643-4d26-8f19-ddb44c5ea8d1'), -- ANÁLISIS DEL DESEMPEÑO DE UN AEROCONDENSADOR
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', 'fb98d80f-5272-4413-8043-46f252bdc7c1'), -- ANÁLISIS DEL DESEMPEÑO DE UN CALENTADOR DE AGUA TIPO SUPERFICIE
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', 'f35d003d-e3a6-47cf-9106-dfc8ef6a018f'), -- ANÁLISIS DEL DESEMPEÑO DE UN CALENTADOR REGENERATIVO DE AIRE
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', 'a0f588db-3b10-4929-a00e-e2d2deb8decb'), -- ANÁLISIS DEL DESEMPEÑO DE UN COMPRESOR AXIAL
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', 'c426f3a7-56cf-404a-b0e7-7dfadb950bb2'), -- ANÁLISIS DEL DESEMPEÑO DE UN CONDENSADOR PRINCIPAL
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', '6c93fd31-5644-4a03-97c1-600ba6e9e13f'), -- ANÁLISIS DEL DESEMPEÑO DE UN DEAREADOR
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', '35970fbd-39e4-4a96-b3d7-2a00b4cc8f80'), -- ANÁLISIS DEL DESEMPEÑO DE UN GENERADOR DE VAPOR
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', '46d3defa-5385-4232-a2f9-1fc6c5a59e83'), -- ANÁLISIS DEL DESEMPEÑO DE UN RECUPERADOR DE CALOR
-    ('6a625a56-5bc2-4518-90ff-8a217b43af2e', '2578a9d7-fb2b-422b-aff3-883974a687ac'), -- ANÁLISIS DEL DESEMPEÑO DE UNA TURBINA DE GAS
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', 'c5ac1fe9-2754-40a8-b909-06d9d336f630'), -- ANALISIS DINÁMICO I CON CERTIFICACIÓN
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', '54ecdd90-29c0-4ec6-b415-0846a1297f15'), -- ANALISIS DINAMICO II CON CERTIFICACIÓN
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', 'f440d7fa-13c1-47ca-b483-e564c40cfd3f'), -- BALANCEO DINÁMICO DE TURBOMAQUINARIA
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', '49de16b6-6ca0-4d11-820e-869c5719e17e'), -- EMPAQUETADURAS Y SELLOS MECANICOS
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', '30cd609f-823d-4a28-8c15-aad1e6a7ff90'), -- EXAMENES NO DESTRUCTIVOS
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', '17cdd9b6-c8f5-4b6c-9eae-ef9788b7fb85'), -- EXAMENES NO DESTRUCTIVOS INSPECCIÓN VISUAL, LÍQUIDOS PENETRANTES Y PARTÍCULAS MAGNÉTICAS
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', '3493069e-2938-4e84-9af2-542eddc685c7'), -- FUNDAMENTOS DE ALINEACIÓN DE EJES EN EQUIPOS ROTATORIOS
-    ('ce395726-35ab-4e3e-82d1-01df7444d975', '54d8f435-f221-42a3-99a9-95276b986b03'), -- FUNDAMENTOS DE CORROSIÓN
-    ('ce395726-35ab-4e3e-82d1-01df7444d975', 'a5fdc636-500e-4e65-8cb2-5762689b1f0f'), -- FUNDAMENTOS DE LOS RECUBRIMIENTOS ANTICORROSIVOS
-    ('81e8ea96-d5da-4a87-9ef9-aebbfae1ee17', '723b53d9-506c-426e-9816-00e96d064936'), -- FUNDAMENTOS DE METROLOGIA DIMENCIONAL
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', 'a3b3fb16-0a75-4fa1-8a1e-d880bb901c64'), -- FUNDAMENTOS DE SOLDADURA SMAW Y GTAW
-    ('ef71f035-6c5f-4d7d-8d1c-1f021d62f185', 'fba9a217-172b-45f9-b216-b092640408e9'), -- FUNDAMENTOS DE TERMOGRAFIA
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', 'f4f61e6e-d8c7-452d-8984-afca0788d243'), -- FUNDAMENTOS DE VENTILADORES
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', 'bba8ebe9-a07f-4a30-b3be-f54446a81e08'), -- INSPECCIÓN Y SUPERVISIÓN DE SOLDADURAS APLICADA A RECUPERADORES DE CALOR Y GENERADORES DE VAPOR
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', 'adaff660-28b1-43fc-a4ee-067b36c4c39b'), -- INTRODUCCIÓN A EMPAQUETADURAS Y SELLOS MECÁNICOS
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', '205e116c-ebaa-4dc0-a82a-01cc82214035'), -- INTRODUCCION A EXAMENES NO DESTRUCTIVOS
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', '0b3903e4-a94f-4e7d-b134-5c4cecf83758'), -- INTRODUCCION A LOS TRATAMIENTOS TÉRMICOS Y METALURGIA
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', 'ebd22247-5f2e-456e-bf22-eef5c4a8891b'), -- INTRODUCCIÓN AL ANÁLISIS DINÁMICO
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', '5c8b4596-f7be-4271-8fbc-ed4754663b88'), -- LAMINADOR FORRADOR
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', 'e487d3d3-8b0b-4a4e-8fbc-1950a85d007b'), -- MANTENIMIENTO A REDUCTORES DE VELOCIDAD
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', 'e031cb26-0520-4560-a633-41dda86cb88f'), -- MANTENIMIENTO A VÁLVULAS
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', 'dfb1d82e-665d-4048-a382-d7bcad3724a0'), -- MANTENIMIENTO A VÁLVULAS DE SEGURIDAD
-    ('ce395726-35ab-4e3e-82d1-01df7444d975', '466dfc8d-ecbe-44d5-a9f5-ae3b4bcbfa9d'), -- MANTENIMIENTO BASADO EN CONDICIÓN ANÁLISIS DE ACEITES I
-    ('ce395726-35ab-4e3e-82d1-01df7444d975', 'ba3206a1-a662-4b4b-ab72-4ef6ce6b85a1'), -- MANTENIMIENTO BASADO EN CONDICIÓN ANÁLISIS DE ACEITES II
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', '0d3c753f-3bed-4ab9-857e-04f60ffdb0d5'), -- MANTENIMIENTO BASADO EN CONDICIÓN ANÁLISIS DE VIBRACIONES I
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', '200d3a57-66ac-470b-af6d-3f95224e239c'), -- MANTENIMIENTO BASADO EN CONDICIÓN ANÁLISIS DE VIBRACIONES II
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'c66cbc94-7dc1-4ebd-b133-b332cb5c7207'), -- MANTENIMIENTO BASADO EN CONDICIÓN PARA LA EVALUACIÓN DEL DESEMPEÑO DE EQUIPOS
-    ('ef71f035-6c5f-4d7d-8d1c-1f021d62f185', 'c0785f03-a746-4136-a362-48bb12432829'), -- MANTENIMIENTO BASADO EN CONDICIÓN TERMOGRAFÍA I
-    ('ef71f035-6c5f-4d7d-8d1c-1f021d62f185', '8731dba3-244f-4594-8c49-8b4ce5b1ab98'), -- MANTENIMIENTO BASADO EN CONDICIÓN TERMOGRAFÍA II
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '4d6e8405-2936-42c6-8f62-3963dbcb7ed1'), -- MANTENIMIENTO DE AIRES ACONDICIONADOS MINI SPLIT
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', 'ca204e92-6004-45be-8364-63ca53f135bc'), -- MANTENIMIENTO DE BOMBAS
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', '411ecca7-3554-4fab-ba63-e387c030939b'), -- MANTENIMIENTO DE COMPRESORES
-    ('6a625a56-5bc2-4518-90ff-8a217b43af2e', '8f08fa1c-7099-4c22-b257-468b96cb47aa'), -- MANTENIMIENTO DE TURBINAS A GAS I (TIPOS DE MANTENIMIENTO, COMPONENTES Y FALLAS)
-    ('6a625a56-5bc2-4518-90ff-8a217b43af2e', 'c679f9f6-7c82-4ccf-baa9-72159e24e351'), -- MANTENIMIENTO DE TURBINAS A GAS II (DESENSAMBLE, MANTENIMIENTO Y ENSAMBLE DE UNA TURBINA)
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', '22ea809f-1b07-49ed-bbbb-725b0824b8a7'), -- MECÁNICO APARATISTA (TORNOS)
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', 'b8eadadc-7d4e-4957-a7cf-7138a7c45d41'), -- MECÁNICO APARATISTA (FRESADORAS)
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', '60f4bee0-945b-4153-a51c-dca58b6888bf'), -- OPERADOR DE GRUA HIAB.
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', 'a6fc7c3b-6a34-414f-b4d2-25777ca11a63'), -- PAILERÍA I
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', 'b481c6ad-53fa-411b-9888-aedebf11e00c'), -- PAILERIA II
-    ('6a625a56-5bc2-4518-90ff-8a217b43af2e', '13b5636e-1781-4292-9b8d-eb8b7d1472bb'), -- PLANEACIÓN Y CONTROL DE MANTENIMIENTO
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', 'bc959a3b-1e31-4923-9d83-d6f5f340561b'), -- PLOMERIA
-    ('ce395726-35ab-4e3e-82d1-01df7444d975', '3cf0b825-35df-4e79-a2eb-6f6800369ee6'), -- RECUBRIMIENTOS ANTICORROSIVOS (SECCIÓN E INSPECCIÓN))
-    ('6a625a56-5bc2-4518-90ff-8a217b43af2e', 'b04a57ca-1552-46ab-a8ea-2fae79766cf3'), -- REHABILITACION Y MANTENIMIENTO DE TURBINAS DE VAPOR
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', 'fbae35d4-527a-43b7-8807-e5fab63b93ef'), -- RODAMIENTOS Y CHUMACERAS PLANAS
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', 'cb0a1ad6-4c18-4613-aacd-0a90e2110a9c'), -- SOLDADURAI-PROCESO DE SOLDADURA SMAW Y OXIACETILENO
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', 'cb5087a7-fc0f-4679-806b-f387d03b3fd7'), -- SOLDADURA II - PROCESO DE SOLDADURA MIG Y TIG
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', '952086c6-cc8f-4e9f-90ab-8a6501308484'), -- SOLDADURA III - PROCESO GTAW Y SMAW APLICADOS A FLUXERIA
-    ('6a625a56-5bc2-4518-90ff-8a217b43af2e', '491c973a-041e-4c8c-950c-c7f9622eecf6'), -- TALLER DE TURBINAS DE VAPOR I: PRINCIPIOS DE FUNCIONAMIENTO
-    ('6a625a56-5bc2-4518-90ff-8a217b43af2e', '4b9b9350-989f-4f43-97a7-845195634532'), -- TALLER DE TURBINAS DE VAPOR II: COMPONENTES DE TURBINAS DE VAPOR
-    ('6a625a56-5bc2-4518-90ff-8a217b43af2e', 'a764f1e7-a567-44ce-90de-6371e6af133d'), -- TALLER DE TURBINAS DE VAPOR III: ALINEAMIENTO DE COMPONENTE Y TURBOGRUPO
-    ('fb0e0890-4779-4410-be3e-312ab212763a', 'cca9c100-efcf-40ab-80f8-17ff1abf5b39'), -- ANÁLISIS DE FALLAS - CICLO COMBINADO (450 MW)
-    ('fb0e0890-4779-4410-be3e-312ab212763a', '20428184-4abb-4a5d-8f11-1797354d4985'), -- ANÁLISIS DE FALLAS - HIDROELECTRICA (300 MW)
-    ('fb0e0890-4779-4410-be3e-312ab212763a', '282a127f-6e22-4326-908e-ddabbddca8f9'), -- ANÁLISIS DE FALLAS - TURBO GAS (150MW)
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', 'c169d75f-b1c5-49c0-bf06-dd55a2258348'), -- ANÁLISIS DE FALLAS DEL GENERADOR DE VAPOR - CARBON (350MW)
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', 'b9791241-6e13-458a-8a91-c141049f173c'), -- ANÁLISIS DE FALLAS DEL GENERADOR DE VAPOR - PANTALLAS 2 (350MW)
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', 'c6f7e30c-2aa8-4a47-bf3e-a4b435a0391b'), -- ANÁLISIS DE FALLAS DEL GENERADOR DE VAPOR - PANTALLAS 3 (330 MW)
-    ('fb0e0890-4779-4410-be3e-312ab212763a', 'bd6279e1-eb6f-4677-874d-6ff6283248aa'), -- ANÁLISIS DE FALLAS DEL TURBOGENERADOR - CARBON (350MW)
-    ('fb0e0890-4779-4410-be3e-312ab212763a', '1f6730de-0e6c-446f-80db-d1005bf6dbd7'), -- ANÁLISIS DE FALLAS DEL TURBOGENERADOR - PANTALLAS 2 (350MW)
-    ('fb0e0890-4779-4410-be3e-312ab212763a', '8779bab3-962e-458a-9fca-e9f4b201bfa1'), -- ANÁLISIS DE FALLAS DEL TURBOGENERADOR - PANTALLAS 3 (330 MW)
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '7081c999-763e-4754-a3f5-2b2b43c55be4'), -- ANÁLISIS DE OPERACIÓN DE CCC Y TURBOGAS
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', '7d59b73c-5123-4dcc-bd87-82164c9852dc'), -- ANÁLISIS DEL DESEMPEÑO DE UNA TORRE DE ENFRIAMIENTO
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', '0f22c44f-b626-453f-b35a-f11cf134fc29'), -- ANÁLISIS DINÁMICO PARA OPERADORES
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', 'ef0de855-26b5-4f85-b54c-453d77f83b94'), -- ANÁLISIS DINÁMICO PARA SUPERINTENDENTES DE TURNO, OPERADORES Y SUPERVISORES
-    ('fb0e0890-4779-4410-be3e-312ab212763a', 'db18342c-bf1e-46fa-b445-31a191a22868'), -- ANÁLISIS Y RESULTADOS DE OPERACIÓN EN CENTRALES GENERADORAS MÓDULO I
-    ('fb0e0890-4779-4410-be3e-312ab212763a', '2442fc96-5f96-4d70-8d3b-db6d14017fd4'), -- ANÁLISIS Y RESULTADOS DE OPERACIÓN EN CENTRALES GENERADORAS MÓDULO II
-    ('fb0e0890-4779-4410-be3e-312ab212763a', '2e43b2d0-0dc2-44ba-9a52-394bec00f9a9'), -- ARRANQUE Y PARO DEL PROCESO HIDROELÉCTRICO EN MANUAL
-    ('fb0e0890-4779-4410-be3e-312ab212763a', '109d7e99-07bc-4f49-b352-c23ec54a010d'), -- BÁSICO DE ANÁLISIS Y RESULTADOS EN EL MERCADO ELÉCTRICO MAYORISTA (CENTRALES GENERADORAS)
-    ('fb0e0890-4779-4410-be3e-312ab212763a', '8f1a0bb0-6fbd-4a76-a04d-51f8e6ee41f9'), -- CAPACITACIÓN PARA OPERADORES DE CENTRAL EN EL SISTEMA RID
-    ('fb0e0890-4779-4410-be3e-312ab212763a', '202b3b7c-2e3d-444c-aa52-8eae5028de60'), -- CÓDIGO DE RED
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'ef17f131-9e75-4855-9b81-b6a7ad490f99'), -- CÓDIGO RED
-    ('e801312c-6434-4ef9-9a18-37265ddf5cfe', 'd3db92e0-7e90-4411-9a8d-2f4519fda40b'), -- CONOCIMIENTOS TÉCNICOS EN LOS PROCESOS SUSTANTIVOS (GENERACIÓN, TRANSMISIÓN, DISTRIBUCIÓN)
-    ('fb0e0890-4779-4410-be3e-312ab212763a', 'd62c91a0-e530-4bf4-ac6b-c5792806a8a3'), -- CONSUMO DE VIDA ÚTIL Y OPERACIÓN CICLICA - CARBON (350MW)
-    ('fb0e0890-4779-4410-be3e-312ab212763a', 'c9e31e20-6f33-4009-962b-44b6902d2844'), -- CONSUMO DE VIDA ÚTIL Y OPERACIÓN CICLICA - CICLO COMBINADO (450 MW)
-    ('fb0e0890-4779-4410-be3e-312ab212763a', '71b5542f-d951-4adc-849e-b5c099b5ceb7'), -- CONSUMO DE VIDA ÚTIL Y OPERACIÓN CICLICA - PANTALLAS 2 (350MW)
-    ('fb0e0890-4779-4410-be3e-312ab212763a', '350dff36-3f5b-446a-9bc0-ceccd872f388'), -- CONSUMO DE VIDA ÚTIL Y OPERACIÓN CICLICA - PANTALLAS 3 (330 MW)
-    ('fb0e0890-4779-4410-be3e-312ab212763a', '94fcb88a-cc90-4301-a8ee-9e2da7a63ac4'), -- CONSUMO DE VIDA ÚTIL Y OPERACIÓN CICLICA - TURBO GAS (150MW)
-    ('81e8ea96-d5da-4a87-9ef9-aebbfae1ee17', '2d0161e3-13f4-4c9d-b771-3d5655f17d57'), -- CONTROL DISTRIBUIDO PARA SISTEMAS DE CONTROL (DYASIS Y OVATION)
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', '65cf9638-0605-457f-bd03-da58c7c01510'), -- DIPLOMADO EN MANTENIMIENTO PREDICTIVO MÓDULO II (VIBRACIONES)
-    ('ce395726-35ab-4e3e-82d1-01df7444d975', '93db8213-22ac-4b6f-ad3a-faa130ada5ab'), -- DIPLOMADO EN MANTENIMIENTO PREDICTIVO MÓDULO III (ANÁLISIS DE ACEITE)
-    ('fb0e0890-4779-4410-be3e-312ab212763a', '806b16ef-83f1-4423-b953-41ee643b93af'), -- ENTRENAMIENTO INICIAL - CARBON (350MW)
-    ('fb0e0890-4779-4410-be3e-312ab212763a', '56b21502-2318-4b1f-9739-b14d5df11853'), -- ENTRENAMIENTO INICIAL - CICLO COMBINADO (450 MW)
-    ('fb0e0890-4779-4410-be3e-312ab212763a', '62dd71b7-0e9f-4812-98c0-a519287edd4e'), -- ENTRENAMIENTO INICIAL GEOTERMOELÉCTRICA 110MW
-    ('fb0e0890-4779-4410-be3e-312ab212763a', 'e5666399-34fa-4650-938a-df3c70742d0d'), -- ENTRENAMIENTO INICIAL - HIDROELECTRICA (300 MW)
-    ('fb0e0890-4779-4410-be3e-312ab212763a', '353b56bb-5204-46db-950d-3880b87f71f5'), -- ENTRENAMIENTO INICIAL - PANTALLAS 2 (350MW)
-    ('fb0e0890-4779-4410-be3e-312ab212763a', '96567dd4-5679-47b3-ac62-1eb564f2bdca'), -- ENTRENAMIENTO INICIAL - PANTALLAS 3 (330 MW)
-    ('fb0e0890-4779-4410-be3e-312ab212763a', '062fcb7d-d8e8-4023-9cc1-91466afdcaf3'), -- ENTRENAMIENTO INICIAL - TURBO GAS (150MW)
-    ('fb0e0890-4779-4410-be3e-312ab212763a', '9d968a1c-b358-438e-aeea-8fb54014bb43'), -- FAMILIARIZACIÓN CON CENTRALES - CICLO COMBINADO (450 MW)
-    ('fb0e0890-4779-4410-be3e-312ab212763a', 'efc335f3-098a-4294-bfe5-d5e5b0d2009b'), -- FAMILIARIZACIÓN CON CENTRALES - HIDROELECTRICA (300 MW)
-    ('fb0e0890-4779-4410-be3e-312ab212763a', '06209775-f6d6-44f5-9648-bd85440260a8'), -- FAMILIARIZACIÓN CON CENTRALES - PANTALLAS 2 (350MW)
-    ('fb0e0890-4779-4410-be3e-312ab212763a', '8c129bd5-c60a-44a6-b017-2dc52b8f68fb'), -- FAMILIARIZACIÓN CON CENTRALES PANTALLAS 330 MW
-    ('fb0e0890-4779-4410-be3e-312ab212763a', 'bd4b9303-e260-4a8f-8569-72a2db231e70'), -- FAMILIARIZACIÓN CON CENTRALES-TURBO GAS (150MW)
-    ('6a625a56-5bc2-4518-90ff-8a217b43af2e', 'd82db736-321a-4e20-a9ba-28ec215350f2'), -- FUNDAMENTOS DE TEORÍA DE CONTROL
-    ('fb0e0890-4779-4410-be3e-312ab212763a', '76f15d13-7690-4409-877f-7b99a52f79a6'), -- GENERACIÓN DISTRIBUIDA (PANELES SOLARES)
-    ('fb0e0890-4779-4410-be3e-312ab212763a', 'fb61898e-b2c0-425f-b9ff-e25e99dd4477'), -- GENERACION GEOTERMICA
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '07ae635b-f8c0-4f72-8724-8b619dc7a01e'), -- INDUCCION AL PUESTO DE AUXILIAR DE SERVICIO (CHOFER)
-    ('fb0e0890-4779-4410-be3e-312ab212763a', '2885b06f-88bf-4433-ab80-2cdee3a3f821'), -- INTRODUCCIÓN A CENTRALES DE CICLO COMBINADO
-    ('fb0e0890-4779-4410-be3e-312ab212763a', '81a85fcb-132c-47f9-bddc-a26f5b1e3ac5'), -- INTRODUCCIÓN A CENTRALES HIDROELECTRICAS
-    ('fb0e0890-4779-4410-be3e-312ab212763a', '82652804-0954-4155-9bf3-f5f08b1af5e7'), -- INTRODUCCIÓN A CENTRALES SUPERCRÍTICAS
-    ('fb0e0890-4779-4410-be3e-312ab212763a', '8e739002-16ec-4bd3-9fdb-04598c74d778'), -- INTRODUCCIÓN A CENTRALES TERMOELECTRICAS
-    ('fb0e0890-4779-4410-be3e-312ab212763a', '5daa5c2d-c877-4e26-9e46-f47d3fe130c5'), -- INTRODUCCIÓN A SISTEMAS FOTOVOLTAICOS INTERCONECTADOS A LA RED
-    ('dbdf929f-8ff3-415b-bc37-46cefc97e3a1', 'c9f86d83-04e3-44e7-b007-c940ef15eb77'), -- INTRODUCCION AL AJUSTE DE COSTOS Y PRECIOS UNITARIOS
-    ('fb0e0890-4779-4410-be3e-312ab212763a', 'bd7888c4-f8b9-46f5-9919-7b8bacc34b15'), -- LEGISLACION EN MATERIA DE ENERGIAS RENOVABLES
-    ('fb0e0890-4779-4410-be3e-312ab212763a', '637c3416-dd86-4ec0-a4a6-d83a4b4746df'), -- LICENCIAS INTERNAS DE CENTRALES GENERADORAS
-    ('fb0e0890-4779-4410-be3e-312ab212763a', '3555b87b-8c9c-4c06-9771-e27be5d96485'), -- MEJORA DE EFICIENCIA TÉRMICA EN CENTRALES GENERADORAS
-    ('fb0e0890-4779-4410-be3e-312ab212763a', 'b65baa57-b21f-4e58-aafe-d6e249cdeeeb'), -- METODOLOGÍA DE ANÁLISIS DE CAUSA RAİZ DE FALLAS EN GENERACIÓN
-    ('fb0e0890-4779-4410-be3e-312ab212763a', 'd35331db-8d72-4b1f-8a2a-96b3b25a92be'), -- MÓDULO I MEM OPERATIVO: INTRODUCCIÓN
-    ('fb0e0890-4779-4410-be3e-312ab212763a', 'bea7bf90-d3e0-4a3e-a855-f21901969f0d'), -- MÓDULO II MEM OPERATIVO: MERCADO DE ENERGÍA PARA LA OPERACIÓN DE LAS UECS
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', 'e0c84cdc-5fee-42d7-a2d0-b0b0ee08cac0'), -- PRIMEROS AUXILIOS DE C.F.E. NIVEL BÁSICO I
-    ('fb0e0890-4779-4410-be3e-312ab212763a', 'aea2da5a-09d7-44e1-8db1-7ac1e6050cb4'), -- PRINCIPIOS DE SUSTENTABILIDAD ENERGÉTICA Y GENERACIÓN CON FUENTES RENOVABLES
-    ('fb0e0890-4779-4410-be3e-312ab212763a', '24bb3091-9441-4105-9c16-b9b57878c36d'), -- PROCEDIMIENTO NORMATIVO N-2000-BO12 PARA LA DETERMINACIÓN Y GESTIÓN DE EVENTOS DE FALLA Y DECREMENTO POR CAUSAS EXTERNAS EN CENTRALES GENERADORAS
-    ('fb0e0890-4779-4410-be3e-312ab212763a', 'c1161cb9-0e72-41b4-b8a4-071dca5cdbf5'), -- PROCEDIMIENTO NORMATIVO PARA ELABORAR EL REPORTE DIARIO DE CENTRALES
-    ('9a0ea466-4018-4538-8e2d-3f36c2549ac6', 'b0b025e0-66d0-4684-80a2-08dfafe8f2f9'), -- PROTECCIONES DEL TURBOGENERADOR EN CENTRALES GENERADORAS
-    ('fb0e0890-4779-4410-be3e-312ab212763a', 'c74c6dce-ec9d-47ac-86ff-eaf1c5b87715'), -- RÉGIMEN TÉRMICO - CARBON (350MW)
-    ('fb0e0890-4779-4410-be3e-312ab212763a', '2f577b1d-79e6-4326-9ce9-364e140c98d0'),
-    ('fb0e0890-4779-4410-be3e-312ab212763a', '51b3d950-40a9-4f8e-9009-7d8bcf97a6e7'), -- RÉGIMEN TÉRMICO - PANTALLAS 2 (350MW)
-    ('fb0e0890-4779-4410-be3e-312ab212763a', 'ef6aee6b-b035-4f6f-b5b7-bd1c46e7908b'), -- RÉGIMEN TÉRMICO - PANTALLAS 3 (330 MW)
-    ('fb0e0890-4779-4410-be3e-312ab212763a', '270d69fc-803e-4087-a9cc-d1f4e7e9b56c'), -- RÉGIMEN TÉRMICO - TURBO GAS (150MW)
-    ('fb0e0890-4779-4410-be3e-312ab212763a', '863bcb9a-accc-4a15-b9aa-e0aa2bebd150'), -- SISTEMA FOTOVOLTAICO AISLADO
-    ('fb0e0890-4779-4410-be3e-312ab212763a', '54e425ca-1cce-450e-a1f5-78a3be83735c'), -- SUPERINTENDENTES DE TURNO CARBON 350 MW
-    ('fb0e0890-4779-4410-be3e-312ab212763a', '67d6cdbd-724d-4f8c-99ad-f4be309062fb'), -- SUPERINTENDENTES DE TURNO CICLO COMBINADO (450 MW)
-    ('fb0e0890-4779-4410-be3e-312ab212763a', '6757e3f0-b08c-4b89-b534-60575287e9aa'), -- SUPERINTENDENTES DE TURNO PANTALLAS 330 MW
-    ('fb0e0890-4779-4410-be3e-312ab212763a', '9b4f3ead-2ea5-4719-be74-ba349552d349'), -- SUPERINTENDENTES DE TURNO PANTALLAS 350 MW
-    ('fb0e0890-4779-4410-be3e-312ab212763a', '42a65c76-4f34-4145-8957-bd58cdcf09e9'), -- TERMODINÁMICA APLICADA EN CENTRALES DE GENERACIÓN-MOD. I CENTRALES CONVENCIONALES)
-    ('fb0e0890-4779-4410-be3e-312ab212763a', '89b8d0d2-1c11-463d-be90-52999cbfc3d1'), -- TERMODINÁMICA APLICADA EN CENTRALES DE GENERACIÓN-MOD. II CENTRALES CICLO COMBINADO
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'b679b4bc-3d46-4074-9900-b48afa9656cb'), -- TERMODINÁMICA DEL VAPOR
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '2a322a9d-e590-41f4-944c-75340762843d'), -- TRÁMITE DE LICENCIAS
-    ('fb0e0890-4779-4410-be3e-312ab212763a', '4e9efa12-dc54-4ad1-aaa5-63d3a78f3e02'), -- ALMACENAMIENTO DE UNIDADES DE GENERACIÓN
-    ('ce395726-35ab-4e3e-82d1-01df7444d975', 'fc693cc6-aaee-453b-a325-5915c7c2a054'), -- ANÁLISIS DE ACEITES LUBRICANTES Y COMBUSTIBLES
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '294c1590-f8fa-465d-9243-6483af697f5a'), -- ANÁLISIS DE FALLAS DE TUBERÍAS DE RECUPERADORES DE CALOR
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', 'aebb264d-407a-4d3d-a1bf-643fd9a10a6d'), -- ANÁLISIS DE FALLAS DE TUBERÍAS DEL GENERADOR DE VAPOR
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '9410e794-5328-4325-9772-683a6feb9bab'), -- BÁSICO DE ANÁLISIS DE FALLA EN TUBERÍAS
-    ('ce395726-35ab-4e3e-82d1-01df7444d975', '360152eb-0d18-477a-a930-db444362dbe1'), -- INTRODUCCION A INGENIERIA QUIMICA APLICADA A LA GENERACIÓN ELÉCTRICA MÓDULO I
-    ('ce395726-35ab-4e3e-82d1-01df7444d975', '4dc09d7b-bbd1-49cb-948d-9730d3b2e735'), -- INTRODUCCION A INGENIERIA QUIMICA APLICADA A LA GENERACIÓN ELÉCTRICA MÓDULO II
-    ('ce395726-35ab-4e3e-82d1-01df7444d975', '7fb98f64-3888-4984-8ea9-94d2660158f5'), -- INTRODUCCION A INGENIERIA QUIMICA APLICADA A LA GENERACIÓN ELÉCTRICA MÓDULO III
-    ('ce395726-35ab-4e3e-82d1-01df7444d975', '9efae4b5-e968-483c-b002-8e9746b4aa9c'), -- INTRODUCCIÓN A LA PREPARACIÓN DE REACTIVOS Y MANEJO DE SUSTANCIAS QUÍMICAS
-    ('ce395726-35ab-4e3e-82d1-01df7444d975', 'cb5ee8c6-431d-49ab-9a84-b7456da0b4a6'), -- INTRODUCCION A TRATAMIENTO DE AGUAS NEGRAS
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', '62c5519a-1d3f-4729-877a-6fe66abe28c5'), -- LIMPIEZAS QUÍMICAS DEL GENERADOR DE VAPOR Y RECUPERADORES DE CALOR
-    ('ce395726-35ab-4e3e-82d1-01df7444d975', '044511d6-3170-40a2-9603-2ebcfab12699'), -- MANEJO DE SUSTANCIAS QUIMICAS PELIGROSAS Y AGENTES CONTAMINANTES
-    ('10b47c3b-db63-429f-90ca-97aea63f5f0f', '941b43e0-ce62-4e97-9b60-645b59d97ad9'), -- PRUEBAS DE COMBUSTIÓN Y PUESTA A PUNTO DEL GENERADOR DE VAPOR
-    ('e4d0f81f-f9fa-429b-b403-91eea3cc6758', '00d23d8b-d44a-45fa-95fa-7b137feb1034'), -- RUMBO A LA CERTIFICACIÓN DE INDUSTRIA LIMPIA
-    ('ce395726-35ab-4e3e-82d1-01df7444d975', '143c9df6-87a4-41f0-99e8-406cf11d00d8'), -- TÉCNICAS DE ANÁLISIS DE AGUAS, COMBUSTOLEO Y ACEITES
-    ('ce395726-35ab-4e3e-82d1-01df7444d975', '29999658-1ca5-4abb-97b8-1b6731382727'), -- TRATAMIENTO DE AGUA DE REPUESTO AL CICLO AGUA-VAPOR
-    ('ce395726-35ab-4e3e-82d1-01df7444d975', '34db0a63-a84f-4af0-a037-968ef3f45d46'), -- TRATAMIENTO QUIMICO DEL CICLO
-    ('ce395726-35ab-4e3e-82d1-01df7444d975', '69832839-3824-492a-b933-4a3a34b885a7'), -- TRATAMIENTO QUIMICO DEL CICLO AGUA-VAPOR Y CONTAMINACIONES PRESENTES
-    ('6a625a56-5bc2-4518-90ff-8a217b43af2e', '822286b5-86df-4ed2-952a-c0a3f153a86b'), -- TRATAMIENTO QUÍMICO INTERNO Y CONTROL DE PROBLEMAS INHERENTES
-    ('ce395726-35ab-4e3e-82d1-01df7444d975', 'a12be351-0b9b-4a5d-94e3-b3262111e528'), -- TRATAMIENTO QUÍMICO PARA EL SISTEMA DE ENFRIAMIENTO
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '8c9037a5-4423-4a78-8107-38d1aae38c94'), -- ADMINISTRACIÓN DE RIESGOS
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', 'b2e694e6-087d-4812-a80d-7644950b241a'), -- ANÁLISIS DE ACCIDENTES E INCIDENTES EN EL TRABAJO
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '1d2d4548-6353-4ed6-9653-97ff1b91e16b'), -- ATENCIÓN A VISITAS DE LA STPS
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '31c4d4de-7610-4ec1-84b2-3aad5cdfd0a8'), -- ATENCIÓN PSICOLÓGICA DE PRIMER CONTACTO
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '86eeb67b-f313-459b-9c4a-97356d8ac728'), -- BRIGADA DE BÚSQUEDA Y RESCATE NIVEL 0 (BÁSICO)
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '0d16b9f7-31fe-4daa-bfc5-8512b9c7f8cf'), -- BRIGADA DE BÚSQUEDA Y RESCATE NIVEL I (INTERMEDIO)
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '960eb018-7a51-41a9-bbf1-a3e2984fba68'), -- BRIGADA DE BÚSQUEDA Y RESCATE NIVEL II (AVANZADO)
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '0b007c18-4847-4547-9f69-f128c9c69f76'), -- BRIGADA DE EVACUACIÓN NIVEL 0 (BÁSICO)
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', 'c80e4764-6384-4d23-a819-78c283f97f00'), -- BRIGADA DE PRIMEROS AUXILIOS NIVEL 0 (BÁSICO)
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '221d069f-c6f0-4f2e-a046-acacd2d4a174'), -- BRIGADA DE PRIMEROS AUXILIOS NIVEL I (INTERMEDIO)
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', 'a58f96e2-0ab9-4f73-9c9b-a32df1689f11'), -- BRIGADA DE PRIMEROS AUXILIOS NIVEL II (AVANZADO)
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '58ad2c2f-91f3-44bd-a618-2de53ffcffe8'), -- COLORES Y SEÑALES DE SEGURIDAD E HIGIENE, E IDENTIFICACIÓN DE RIESGOS POR FLUIDOS CONDUCIDOS EN TUBERÍAS (NOM-026-STPS-2008)
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', 'eaa65b6f-57a1-4986-876f-6da294176459'), -- COMISIONES DE SEGURIDAD E HIGIENE PARA INTEGRANTES
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', 'd9eb4ff1-070a-4990-9acc-409861c0b32a'), -- CONCEPTOS DE SEGURIDAD INDUSTRIAL
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '92fbd0ff-3ac4-47d4-a444-938bd1572b70'), -- CONDICIONES DE ILUMINACIÓN EN LOS CENTROS DE TRABAJO (NOM-025-STPS-2008)
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '0820279c-ab92-4663-888e-0c163ed6e707'), -- CONDICIONES DE SEGURIDAD PARA EL ACCESO Y DESARROLLO DE ACTIVIDADES DE TRABAJADORES CON DISCAPACIDAD EN LOS CENTROS DE TRABAJO (NOM-034-STPS-2016)
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '92f01405-47e1-404d-be67-65428d77d911'), -- CONDICIONES DE SEGURIDAD PARA REALIZAR TRABAJOS EN ALTURA (NOM-009-STPS-2011)
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '5ed9f3e1-d070-46dd-b4dc-e8a43c7763e5'), -- CONSTITUCION, INTEGRACION Y FUNCIONAMIENTO DE LAS COMISIONES DE SEGURIDAD E HIGIENE (NOM-019-STPS-2011)
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '05ad0e72-a361-4e5d-bee7-fe9e7c29a6d9'), -- CURSO BÁSICO PARA LA INTERPRETACIÓN DE LA NOM-035-STPS-2018
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '5b654ed0-0c4b-4e9b-9858-e37ab73c2d37'), -- DIPLOMADO EN RESCATE PARA BRIGADISTAS MÓDULO I
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '0919ebba-283f-4bf7-ae12-a356b7ae3d55'), -- DIPLOMADO EN RESCATE PARA BRIGADISTAS MÓDULO II
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '416fadd0-eacf-41a6-8d98-962712c6f1fb'), -- DIPLOMADO EN RESCATE PARA BRIGADISTAS MÓDULO III
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', 'b734ce7a-f493-4a88-87e6-52eaa2f67298'), -- DIPLOMADO SOBRE INGENIERÍA EN SEGURIDAD INDUSTRIAL MÓDULO I (NORMATIVIDAD Y GESTIÓN DE SEGURIDAD)
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', 'b7784156-5c06-4ff4-883d-8680811c0f1c'), -- DIPLOMADO SOBRE INGENIERÍA EN SEGURIDAD INDUSTRIAL MÓDULO II (HIGIENE INDUSTRIAL)
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '40f7297c-d6d3-4188-8834-f2379083793b'), -- DIPLOMADO SOBRE INGENIERÍA EN SEGURIDAD INDUSTRIAL MÓDULO III (SISTEMAS CONTRAINCENDIOS)
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '74087a4c-d560-4929-b6c7-c12628a1972a'), -- DIPLOMADO SOBRE INGENIERÍA EN SEGURIDAD INDUSTRIAL MÓDULO IV (ANÁLISIS DE RIESGOS)
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '1f81bf80-8a19-438f-a6b3-f3081d30efbd'), -- DIPLOMADO SOBRE INGENIERÍA EN SEGURIDAD INDUSTRIAL MÓDULO V (SALUD EN EL TRABAJO)
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '95514dbb-e910-494b-8bee-4edf449ec7a6'), -- EDIFICIOS, LOCALES, INSTALACIONES Y ÁREAS EN LOS CENTROS DE TRABAJO - CONDICIONES DE SEGURIDAD (NOM-001-STPS-2008)
-    ('ef71f035-6c5f-4d7d-8d1c-1f021d62f185', 'f20f3685-c7e5-4ed2-aa47-bec64be65c71'), -- ELECTRICIDAD ESTÁTICA EN LOS CENTROS DE TRABAJO-CONDICIONES DE SEGURIDAD (NOM-022-STPS-2008)
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '8fc2bdc1-b659-430d-b03b-226badda7458'), -- FACTORES DE RIESGO ERGONÓMICO EN EL TRABAJO (NOM-036-STPS-2018)
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '60f52114-9c6c-4608-9548-0b80ff7820d9'), -- FACTORES DE RIESGO PSICOSOCIAL EN EL TRABAJO-IDENTIFICACION, ANALISIS Y PREVENCION (NOM-035-STPS-2018)
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '76ec540d-bd02-4299-ad40-efdef3544678'), -- FUNDAMENTOS PARA INSPECCIÓN Y MANEJO DE RECIPIENTES SUJETOS A PRESIÓN
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '80aa5294-21bb-4a89-9f33-b98a04aa3496'), -- GESTIÓN INTEGRAL DE RIESGOS
-    ('6a625a56-5bc2-4518-90ff-8a217b43af2e', 'bba82611-2165-4f3f-8ac2-e7b3e68b009a'), -- IDENTIFICACION, EVALUACION Y CONTROL DE LOS FACTORES DE RIESGO ERGONOMICO
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '21113e07-4b2d-4166-b150-3b5448be6357'), -- IMPORTANCIA DE LA SEGURIDAD E HIGIENE EN LOS CENTROS DE TRABAJO
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '6d85caeb-cda0-4c24-8369-32e7e21425cc'), -- INDUCCIÓN A LA SEGURIDAD
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '347a5b29-adda-4a5e-bfc1-9b962df8c557'), -- INTEGRACIÓN DE BRIGADAS MULTIDISCIPLINARIA
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '1afca3b8-c103-4eee-abb2-0e393d880e31'), -- INTERPRETACION DE LAS NORMAS OFICIALES MEXICANAS ACREDITADAS EN EL LABORATORIO DE LA CFE (NOM-011-STPS-2001 Y NOM-025-STPS-2008) RUIDO E ILUMINACION
-    ('ef71f035-6c5f-4d7d-8d1c-1f021d62f185', 'f39b4a6e-0469-4609-989d-174959c30031'), -- Introduccion a la NOM-029-STPS-2011, Mantenimiento de las instalaciones eléctricas en los centros de trabajo-Condiciones de seguridad
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '1a365534-ca59-4108-9f8e-dd89424bb983'), -- INTRODUCCIÓN A EVACUACIÓN DE INSTALACIONES
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'ea1d068b-82b2-4103-bfe2-0de0b94a4e0c'), -- INTRODUCCION A LA EVACUACIÓN DE INSTALACIONES
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '56e554ff-640b-4961-b705-687e60f37732'), -- Introduccion a la NOM-003-SEGOB-2011, Señales y avisos para protección civil.- Colores, formas y símbolos a utilizar
-    ('ce395726-35ab-4e3e-82d1-01df7444d975', 'b06d12c3-058a-4fdb-9f22-d40ff6ea6a26'), -- INTRODUCCIÓN A LA NOM-018-STPS-2015, SISTEMA ARMONIZADO PARA LA IDENTIFICACIÓN Y COMUNICACIÓN DE PELIGROS Y RIESGOS POR SUSTANCIAS QUIMICAS PELIGROSAS EN LOS CENTROS DE TRABAJO
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '2df30c8f-f840-4481-bc9d-68237799c700'), -- Introduccion a la NOM-033-STPS-2015, Condiciones de seguridad para realizar trabajos en espacios confinados
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '5c2f4343-940c-40df-9237-a3200138b5e2'), -- INTRODUCCIÓN A LA NOM-036-1-STPS-2018 (FACTORES DE RIESGO ERGONÓMICO EN EL TRABAJO)
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '3766504e-74d8-47aa-a9dc-145197ac2fa2'), -- INTRODUCCIÓN A LA NORMATIVIDAD Y SEGURIDAD PARA LA OPERACION DE RECIPIENTES SUJETOS A PRESIÓN (NOM-020-STPS)
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', 'f9b280e0-75c2-42c8-bea6-b6e8437d85ce'), -- INTRODUCCIÓN A LA PREVENCIÓN Y COMBATE DE INCENDIOS
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'd44f823d-a859-41d6-be1c-40be91b694f0'), -- INTRODUCCIÓN A LA SALUD EN EL TRABAJO
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', 'a49c5ba0-5829-49a5-9484-2cb28a406882'), -- INTRODUCCIÓN A LA SEGURIDAD E HIGIENE
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '3212aad8-8c62-45bf-831d-55c68bda58ba'), -- INTRODUCCIÓN A LA SEGURIDAD INDUSTRIAL PARA SUPERVISORES Y MANDOS MEDIOS
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '44afbedc-491e-434f-890e-8973be88568b'), -- INTRODUCCIÓN A PRIMEROS AUXILIOS
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '7b16c2f3-66e0-463b-b615-a3ca68e03f40'), -- INTRODUCCIÓN A PROTECCIÓN CIVIL
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '94ade632-023b-4093-858f-11734e563f10'), -- INTRODUCCIÓN AL EQUIPO DEL PROTECCIÓN PERSONAL (NOM-017-STPS)
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '507c32b0-d298-4bfc-8a89-b3f4833b07f7'),
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '6fe08f2d-eb42-43b9-a662-f9508bf8aefe'), -- INTRODUCCION AL REGLAMENTO DE SEGURIDAD E HIGIENE CAP. 100
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '7ea61963-22ac-480c-878e-986e9b1c7c64'), -- INTRODUCCIÓN AL SISTEMA GLOBALMENTE ARMONIZADO (NOM-018-STPS-2015)
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '2e529b05-a6a3-4ede-b01b-fe9594cc274b'), -- INVESTIGACIÓN DE ACCIDENTES E INCIDENTES EN EL TRABAJO
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'fdd1ebf3-81f5-4092-a6f2-bd339821f964'), -- INVESTIGACIÓN Y ANÁLISIS DE INCIDENTES
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '848deae1-8a3c-4c04-9e6f-cda1cf09b31d'), -- LIDERAZGO Y ADMINISTRACION MODERNA DE LA SEGURIDAD
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '66423e8c-6a7d-4a16-b93a-8d83e6e84411'), -- MANEJO A LA DEFENSIVA EN VEHÍCULOS
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', 'e5180077-182e-486b-aba6-217f513b6ec7'), -- MANEJO Y ALMACENAMIENTO DE MATERIALES (NOM-006-STPS)
-    ('ef71f035-6c5f-4d7d-8d1c-1f021d62f185', '8d950a17-a91d-4e56-b37d-5c195a776d59'), -- MANTENIMIENTO DE LAS INSTALACIONES ELÉCTRICAS EN LOS CENTROS DE TRABAJO-CONDICIONES DE SEGURIDAD (NOM-029-STPS-2011)
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '738eecd6-2793-4b8d-8ffb-890eda04b479'), -- METODOLOGÍA DE LAS 5 S ENFOCADO A SEGURIDAD
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', 'db5eae49-645a-4e30-917c-2aa2c07c98de'), -- NOM-008-SEGOB-2015, PERSONAS CON DISCAPACIDAD.- ACCIONES DE PREVENCIÓN Y CONDICIONES DE SEGURIDAD EN MATERIA DE PROTECCIÓN CIVIL EN SITUACIÓN DE EMERGENCIA O DESASTRE
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', 'bebf1d80-40e0-4ec0-a1d0-54c47c0d58a3'), -- NOM-035 Y NOM-036 (APLICACIÓN Y ANÁLISIS)
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'a7d4a7df-050d-4e96-9eb6-29b46b8b2c06'), -- PREVENCIÓN DE RIESGOS LABORALES Y SALUD OCUPACIONAL
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '12ee566e-475e-4c8e-90d0-d20f6a4e24b3'), -- PREVENCION Y COMBATE DE INCENDIOS NIVEL I. (BRIGADISTAS DE PROCESO)
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', 'e86427bf-0793-4188-8570-aeac4e9303f1'), -- PREVENCION Y COMBATE DE INCENDIOS NIVEL II. (BRIGADISTAS DE CENTRAL)
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', 'a5b40a5c-5fb9-4f37-93ee-35e7c4e54129'), -- PREVENCION Y COMBATE DE INCENDIOS NIVEL III. (COMANDANTE DE BRIGADA)
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', 'c980aa60-ff34-41ac-b80f-82542ebdefcd'), -- PREVENCION Y PROTECCION CONTRA INCENDIOS NIVEL 0 (MANEJO DE EXTINTORES PORTATILES)
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '8bc4c6ca-265c-459b-9a3a-ca159e563a09'), -- PRIMEROS AUXILIOS BÁSICOS
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '1226647e-554d-4752-9d71-783815f34d76'), -- PRIMEROS AUXILIOS NIVEL I
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '166e03ae-5e83-4837-be45-458d4f7556c8'), -- PRIMEROS AUXILIOS NIVEL II
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '85218d34-514e-4191-a4d1-f70ba18d1f67'), -- PRIMEROS AUXILIOS PARA BRIGADAS I
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '12263607-edb9-4bff-8a51-8b72b43acfef'), -- PRIMEROS AUXILIOS PARA BRIGADAS II
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '1ccd2db5-6a73-4131-924a-17dfceaf389a'), -- PRINCIPIOS DE PROTECCIÓN CIVIL
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '70b18d52-8e40-4968-9412-685b87c6e261'), -- PROTECCIÓN CIVIL NIVEL I
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', 'a4092905-7501-4fec-b990-cdb9b876121b'), -- RESCATE Y PRIMEROS AUXILIOS
-    ('e801312c-6434-4ef9-9a18-37265ddf5cfe', 'e542357e-d554-4184-b8bd-f2fc8d7b7c84'), -- RESCATE Y PRIMEROS AUXILIOS EN ESTRUCTURAS DE TRANSMISIÓN
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', 'e428f7ef-dd5a-47e6-97dc-cce17c42d9ae'), -- RESCATE Y PRIMEROS AUXILIOS INTERMEDIO
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', 'd364e09d-da62-4524-a00e-bf6b526d8ccf'), -- RESPUESTA A INCIDENTES CON MATERIALES PELIGROSOS
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', 'd1898565-ca0a-4ead-9546-348c85fd4112'), -- SEGURIDAD Y COMPORTAMIENTO HUMANO
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '377f367a-5d28-4e2e-bf14-b5fba3cdb25d'), -- SEGURIDAD Y RESCATE EN ESPACIOS CONFINADOS
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '94c5abb9-eb35-4ad5-8ee2-7f317deff019'), -- SEMINARIO PARA LA ATENCION DE EMERGENCIAS PARA BRIGADISTAS (MODULO I)
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'e74e7f2b-532b-4e37-9998-c33e2376a892'), -- SEMINARIO PARA LA ATENCION DE EMERGENCIAS PARA BRIGADISTAS (MODULO II)
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', 'd7711293-ad89-4615-b6fb-58a677f29186'), -- SEÑALES Y AVISOS PARA PROTECCIÓN CIVIL COLORES, FORMAS Y SÍMBOLOS A UTILIZAR (NOM-003-SEGOB-2011)
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '07b24b50-7067-40fa-8af3-dbfc177fe33d'), -- SERVICIOS PREVENTIVOS DE SEGURIDAD Y SALUD EN EL TRABAJO - FUNCIONES Y ACTIVIDADES (NOM-030-STPS-2009)
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', 'bd327b63-3c00-4bd2-bc85-e4100d16b688'), -- TALLER DE ACTUALIZACIÓN DE BRIGADAS POLIFUNCIONALES
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '3a907343-e4c5-42f8-b06c-feab31b89fb5'), -- TALLER DE PREVENCIÓN/ATENCIÓN MÉDICA Y CALIFICACIÓN DE PROBABLE ENFERMEDAD DE TRABAJO (ST-9), POR RIESGOS PSICOSOCIALES
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '3fa8b6db-9b44-49d4-8481-9fc8a0525d56'), -- TALLER DEL SISTEMA INFORMÁTICO DE SEGURIDAD Y SALUD EN EL TRABAJO (SISST 2.0)
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '1cc267d4-4a63-409f-80a4-a70116ec24c4'), -- TALLER DEL SISTEMA INFORMATICO DE SEGURIDAD Y SALUD EN EL TRABAJO (SISST)
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '47c06611-d529-4dfd-9657-1f0101e9b3d9'), -- TALLER DEL SISTEMA INFORMATICO PROTECCION CIVIL INSTITUCIONAL (PCI)
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '9e14a0fd-8296-4c44-ac71-41f398334941'), -- TALLER PARA LA ATENCIÓN DE REQUERIMIENTOS DE LA NOM-035-STPS-2018
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', 'e6115901-7cdc-479f-853e-6e6704cdce84'), -- TRABAJO EN ALTURAS (NOM-009-STPS-2011)
-    ('0c0679b9-0f4c-48b4-8ea3-969ac721fab7', '41825192-a72d-4526-bb88-2ccfc41d97e7'), -- ADOBE INDESIGN
-    ('0c0679b9-0f4c-48b4-8ea3-969ac721fab7', '3131babf-0111-4bc6-86b2-fa6cb806121e'), -- ADOBE PHOTOSHOP AVANZADO
-    ('0c0679b9-0f4c-48b4-8ea3-969ac721fab7', '52efc468-752f-48d3-9991-6618b6285afe'), -- AUTOCAD (2D Y 3D)
-    ('0c0679b9-0f4c-48b4-8ea3-969ac721fab7', '434c11b1-48e2-4dd5-b330-445d5fce9dae'), -- AUTOCAD REVIT 2016
-    ('0c0679b9-0f4c-48b4-8ea3-969ac721fab7', 'cd80c473-9e8b-4385-a900-11e53c4692a8'), -- DISEÑO DE CONTENIDOS CON CANVA
-    ('0c0679b9-0f4c-48b4-8ea3-969ac721fab7', 'b3d8d2cb-960c-4f64-99f5-824fe27043f8'), -- DISEÑO DE PÁGINAS WEB CON HTML Y CCS
-    ('0c0679b9-0f4c-48b4-8ea3-969ac721fab7', 'cc5299d0-f5a7-4c34-89e6-14da6ac34ba4'), -- FORMACION DE DISEÑADOR GRAFICO PARA ENTORNOS DE APRENDIZAJE VIRTUALES: MODULO I - MOODLE, ADOBE PHOTOSHOP, ADOBE ILLUSTRATOR, ADOBE CHARACTER ANIMATOR
-    ('0c0679b9-0f4c-48b4-8ea3-969ac721fab7', 'c18bcf54-b465-417b-b505-81937946c889'), -- FORMACION DE DISEÑADOR GRAFICO PARA ENTORNOS DE APRENDIZAJE VIRTUALES: MODULO II - ADOBE AUDITION, ADOBE PREMIERE, H5P EN MOODLE
-    ('0c0679b9-0f4c-48b4-8ea3-969ac721fab7', '7be54521-c445-4c4a-a235-dfc0cb1bf6f0'), -- HERRAMIENTAS DE EDICIÓN DE IMÁGENES (PHOTOSHOP E ILLUSTRATOR)
-    ('0c0679b9-0f4c-48b4-8ea3-969ac721fab7', '88c616a6-f4d7-44e1-a90d-048d2da7577f'), -- INTRODUCCIÓN A AUTOCAD
-    ('0c0679b9-0f4c-48b4-8ea3-969ac721fab7', '2fa11dbc-9d47-448a-9510-86a49df967bf'), -- INTRODUCCIÓN A AUTOCAD (2D)
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', 'fd925bf5-b388-4673-a020-1bbd5dee7c8b'), -- ACTIVO FIJO AVANZADO EN SAP
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', '2d2eb755-1268-418d-a7a4-de592f078949'), -- ACTIVO FIJO BÁSICO EN SAP
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', 'ded512fa-e46d-416a-ac6b-6bfbcc61d475'), -- ADMINISTRACIÓN DE WINDOWS SERVER 2016
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', 'c90fdac0-05d2-4bc1-864d-8709131ad19c'), -- ADMINISTRACIÓN DE ALMACENES AVANZADO EN SAP (MM-IM)
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', 'b68e9530-5377-4613-b9c5-3dbfd95c8eab'), -- ADMINISTRACIÓN DE ALMACENES BÁSICO EN SAP (MM-IM)
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', '0a94f97a-0290-48b5-a466-595190a4e9bf'), -- ADMINISTRACIÓN DE PROYECTOS (PS) EN SAP
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', '715640f4-297d-49eb-9e57-d26a61eb4833'), -- ADQUISICIONES SISTEMA SAP
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', '7b77fb53-d4f0-4d79-a8c6-483193e99736'), -- ALMACENES SISTEMA SAP
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', 'cd4b5758-9cd7-4e51-ae8a-b1834637ed18'), -- ALMACENES SISTEMA SAP AVANZADO
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', 'd5e5f072-f7a4-4132-9211-582b5771332b'), -- BÁSICO DE FINANZAS SISTEMA SAP
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', '00652f0e-9862-4cc3-85c4-131aac447f2a'), -- BOOTSTRAP 5
-    ('0bd9feac-3310-42b7-be89-8606b2eb9e84', 'ace03936-4862-4422-b6ad-6f28be609c50'), -- COMUNICACIONES INALAMBRICAS
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', 'cb1b31cb-188d-4514-b42a-4a502e20b464'), -- COSTOS EN EL SISTEMA SAP
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', 'd98260b8-fdce-42a5-84c1-ad412fe7a27c'), -- COSTOS EN SAP
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', 'f85fb072-2754-4e83-a17d-c0dcbbb6f358'), -- CREACIÓN Y USO DE INFORMES DE ANÁLISIS CON POWER BI
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', 'a5648c15-1e16-4faf-b857-764a5bc391c7'), -- CURSO BÁSICO DE FINANZAS EN SAP
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', 'c0064661-3c24-49ae-953e-941c099810cf'), -- CURSO PARA COORDINADORES DE ROLES (APOYO) DEL SISTEMA INSTITUCIONAL DE INFORMACIÓN (SII)
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', '95818914-d93d-401b-8450-ad392213bcc6'), -- CURSO PARA COORDINADORES DE ROLES DEL SISTEMA INSTITUCIONAL DE INFORMACIÓN (SII)
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', '9224b0f5-6979-4a6e-8933-29d101b5a2fc'), -- DASHBOARDS Y POWER PIVOT EN MICROSOFT EXCEL
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', 'b98fabb2-31ad-40d5-ac06-4105a3336db7'), -- ELABORACIÓN DE INFORME FISCAL SAP
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', '27d47cb5-5fc2-44b2-9c6a-8ea9b1b7c442'), -- EXCEL AVANZADO
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', '95447b23-1421-4bcd-a81a-21933c6384f4'), -- EXCEL AVANZADO 2019
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', '428c86a2-8a6f-4cdb-8037-74fe036c1722'), -- EXCEL BÁSICO
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', '7307e3f3-40f7-4e6c-b814-bb47225406ea'), -- EXCEL BÁSICO 2019
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', '1211f1c6-055c-447a-acc5-d15482400242'), -- FICOAM/TR EN SII SAP
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', 'b9ebdc9a-a632-4723-8276-673ea56b5515'), -- FICOAM/TR FM AVANZADO EN SII SAP
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', 'c95b8724-b27d-4017-85c0-9c71dd5f2e22'), -- FORMACIÓN DE TUTORES: OPERACIÓN DEL CAMPUS VIRTUAL
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', '40c73d60-8573-4cc0-902c-7d03f4f90e7e'), -- FORMULACIÓN DEL PROYECTO DE PRESUPUESTO SISTEMA SAP
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '46280a3b-0dbe-416c-b05a-63c3ae1ff23f'), -- FUNDAMENTOS DE ADMINISTRACIÓN DE PROYECTOS (PMBOK)
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', '78cca100-617b-48ec-99cd-53a05b4d3e53'), -- FUNDAMENTOS DE CLOUD
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', 'fbce7d03-f1c3-4c5b-805d-7bd3f424f0d5'), -- FUNDAMENTOS DE DIRECTORIO ACTIVO
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', '875594f1-0554-4dab-931b-bfee48acf76a'), -- INDUCCIÓN A LA PROGRAMACIÓN PHP
-    ('0bd9feac-3310-42b7-be89-8606b2eb9e84', '911aad38-9c73-408d-b776-73b93dd10fc5'), -- INDUCCIÓN A LAS REDES DE COMPUTADORAS
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', '81f5be68-44bf-40bf-a609-3af70b0c0e2f'), -- INFORMÁTICA PARA NO INFORMÁTICOS
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', 'e0d5df4f-8226-4723-aef7-ca38a2eba59b'), -- INTRODUCCION A FORMS 365
-    ('0c0679b9-0f4c-48b4-8ea3-969ac721fab7', '279a816b-9ed5-4f43-9dea-9b9d1feff60d'), -- INTRODUCCION A GENIALLY
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', '572feb7c-b989-4fbb-be99-5f3cd242ed9c'), -- INTRODUCCIÓN A LA INTELIGENCIA ARTIFICIAL
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', '7c895b39-a6d1-47de-9e5b-48aadf7c3995'), -- INTRODUCCIÓN A LA PLATAFORMA SAP
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', '2103f585-4b01-45a4-8561-1c354e0c02f0'), -- INTRODUCCIÓN A LA REALIDAD AUMENTADA (AR)
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', '803fc2e2-89de-43f2-9098-02fbec8f631c'), -- INTRODUCCION A LAS BASES DE DATOS
-    ('0bd9feac-3310-42b7-be89-8606b2eb9e84', '272f9e44-cc85-4f88-bca3-606244005fac'),
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', '4c986cc6-beaa-4ed1-a38d-631b9976c9cb'), -- INTRODUCCIÓN A ONEDRIVE 365
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', 'd25307ac-33c0-477c-93cb-ef45899e60bb'), -- INTRODUCCIÓN A OUTLOOK 365
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', '60eb884a-1ad6-4f87-84f7-85c30e1cc3c1'), -- INTRODUCCIÓN A PLANNER 365
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', 'c797b016-ab6d-4e24-a3fb-608100dabc0b'), -- INTRODUCCIÓN A SHAREPOINT 365
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', 'ea84758e-8a9b-4dab-bbe0-b922fa31a807'), -- INTRODUCCIÓN A TEAMS 365
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'e309c37f-8300-4be7-ad1b-ab498f88be7b'), -- INTRODUCCIÓN AL AMBIENTE COLABORATIVO 365
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '133d1d0b-a6b7-4c8e-a0c2-8bc3be7ca894'), -- MANTENIMIENTO A DISCOS DUROS
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'cd31931f-1e5e-41e4-8a9e-cfa62a4ad6f3'), -- MANTENIMIENTO PREVENTIVO A EQUIPOS DE COMPUTO
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '04ae1dc3-4872-41a8-af8e-09d78babc985'), -- MARKETING DIGITAL
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '6cee4c15-b425-489f-9cb3-7307a524af52'), -- METODOLOGIA SCRUM PARA LA ADMINISTRACIÓN AGIL DE PROYECTOS
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', 'bb1ae8e9-9297-480c-92d8-e9c30407b1a8'), -- MICROSOFT OFFICE 365
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', 'ff4d5464-6f1d-41a7-bc73-19c83f8dc12b'), -- MICROSOFT POWER BI
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', '7d92f666-e8db-451e-82fa-269eafad69ab'), -- MMC - ELABORACIÓN DE DOCUMENTOS DE ADQUISICIÓN EN SAP (BIENES)
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', 'dd804dbf-ed10-4921-aec8-c8a3d7741b8e'), -- MMC-ELABORACIÓN DE DOCUMENTOS DE CONTRATACIÓN EN SAP (SERVICIOS)
-    ('dbdf929f-8ff3-415b-bc37-46cefc97e3a1', '0fcfa3d6-6286-431c-8357-28dfd94c750a'), -- MMO - OBRA EN SAP
-    ('dbdf929f-8ff3-415b-bc37-46cefc97e3a1', 'db1a4dd3-3640-48d6-88bc-bfa39cf101f0'), -- MMO-OBRA EN SISTEMA SAP
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', 'a2cecf60-5fb8-4b4d-9a66-0c25de44b1ae'), -- MS OFFICE EXCEL 365
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', 'f870b64e-40a4-41cf-a25a-d0f881bc4715'), -- MS OFFICE EXCEL 365 AVANZADO
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', 'a18fe9b9-6cf2-4179-9627-efa262a1a733'), -- MS OFFICE POWER POINT 365
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', 'acc7beb9-7bcc-44c3-a13c-1272a33bc589'), -- MS OFFICE WORD 365
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', 'b84f2256-3dd2-48e3-8e46-16bd6d3b3558'), -- MS OUTLOOK (EXCHANGE)
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '68bd9692-1d90-4fa9-a7e8-718123645245'), -- MS PROJECT PROFESSIONAL
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', 'c2e1f7ce-1dce-4222-8149-b76ec935532b'), -- NAVEGACIÓN EN CUBOS DE INFORMACIÓN DE ESSBASE CON LA HERRAMIENTA SMART VIEW
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', '0bd9c1c3-b6ad-433c-9686-ee0fa5505453'), -- PARQUE VEHICULAR SISTEMA SAP
-    ('0c0679b9-0f4c-48b4-8ea3-969ac721fab7', '0bb80b2b-4979-49c8-a277-cafcf7faf8c3'), -- PHOTOSHOP BÁSICO
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', 'fdfc82f6-125f-4c11-bf43-390411398427'), -- PMG-MANTENIMIENTO DE PARO PROGRAMADO EN SAP
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', 'c882265a-c643-476a-8efb-3e09c7a0cfb6'), -- PMG-MANTENIMIENTO RUTINARIO EN SAP
-    ('e801312c-6434-4ef9-9a18-37265ddf5cfe', '8bf59ef4-fbbd-4b48-8256-3a90c879a24b'), -- PMT-MANTENIMIENTO TRANSMISIÓN EN SAP
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', '7a5b4563-914f-47bd-b656-96c5f1e5c34d'), -- POWER POINT AVANZADO
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', '1a932a45-1a67-443a-ab86-909d53f2f29c'), -- POWER POINT AVANZADO 2019
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', 'da9d874d-0303-4e84-a387-e358abf8466b'), -- POWER POINT BÁSICO
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', 'd6b88fd1-7490-4339-a3cd-397c1fb575e8'), -- POWER POINT BÁSICO 2019
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', 'b3afa5fe-a1bb-436e-bc59-edadfb5eb845'), -- REGISTRO Y COMPROBACIÓN DE OFICIOS DE COMISIÓN
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '2f8037a2-ec4a-4dba-8f24-2a47e7c70397'), -- SEGURIDAD DE LA INFORMACIÓN ANALISIS DE RIESGOS
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', 'ab0780ec-8152-4b49-acd4-ca366a96e58e'), -- SEGURIDAD INFORMÁTICA
-    ('35270bb9-a322-4693-86f7-9008890cb6a8', '86ab3172-ba0e-4446-b24c-fd047a66e677'), -- SEGURIDAD INFORMÁTICA BÁSICA
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', '27533c2f-ab71-4004-b117-3858ef80ac8a'), -- TALLER ACTIVO FIJO SISTEMA SAP
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', '790a6032-2f5a-4214-8a01-d1c5ff308425'), -- TALLER USUARIOS FINALES SISTEMA SAP
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', 'c17a63a2-9c73-4f1e-a667-025813b7da54'), -- TESORERÍA SISTEMA SAP
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', '3f0739ff-8aa0-4f4d-b184-622ff27913cf'), -- TESORERÍA SISTEMA SAP AVANZADO
-    ('7b947c0b-a5fb-4eb1-b57b-2e52e9f108c5', '0420eada-43ad-4d74-a046-a979262c26af'), -- VIRTUALIZACIÓN CON VMWARE
-    ('dbdf929f-8ff3-415b-bc37-46cefc97e3a1', '3c09fd87-1406-4b12-a0f6-7fd2fbc8d9a4'), -- WF - WORKFLOW PARA ADQUISICIÓN DE BIENES Y CONTRATACIÓN DE SERVICIOS Y OBRA PÚBLICA EN SAP
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', '4b222cf9-7c4b-4b32-86be-f03f74cf1d7e'), -- WORD AVANZADO
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', 'f7baef08-d5d5-4133-b92c-d35b422b0718'), -- WORD AVANZADO 2019
-    ('1cad178a-1e96-429e-9c1e-225fd4d5f2e1', '3087ea6a-18e1-4f8b-acc2-d630d07255d8');
+    aceptaAportes BOOLEAN NOT NULL DEFAULT FALSE,
 
-INSERT INTO kardex (empleadoId, cursoId, fechaInicioCurso, estadoCurso, tipoProgramacion, fechaTerminoCurso, modalidad, calificacion, urlDC3, fechaSubidaDC3)
-VALUES ( '66ef2571-b4e7-4f05-a1a2-cb71c02805e6', '69b6b445-d236-44e7-ae9f-c8ee4477dff7', '2026-01-25', 'APROBADO', 'F', '2026-02-19', NULL, 95, NULL, NULL);
+    cursoAsignadoId UUID REFERENCES curso(cursoId),
 
-INSERT INTO kardex (empleadoId, cursoId, fechaInicioCurso, estadoCurso, tipoProgramacion, fechaTerminoCurso, modalidad, calificacion, urlDC3, fechaSubidaDC3)
-VALUES ( 'e33e26a2-1ed5-462d-a518-2c1df4c50f1c', 'c5ac1c74-879c-480c-a10d-d2535db21bd6', '2026-02-08', 'APROBADO', 'F', '2026-02-12', NULL, 94, NULL, NULL);
+    motivoRechazo TEXT,
 
-INSERT INTO kardex (empleadoId, cursoId, fechaInicioCurso, estadoCurso, tipoProgramacion, fechaTerminoCurso, modalidad, calificacion, urlDC3, fechaSubidaDC3)
-VALUES ( '877a98ab-6f3e-4e2b-a867-f93dddd0df8c', '7b16c2f3-66e0-463b-b615-a3ca68e03f40', '2026-02-22', 'APROBADO', 'F', '2026-03-05', NULL, 90, NULL, NULL);
+    CONSTRAINT chk_tema_necesidad
+        CHECK (LENGTH(TRIM(tema)) > 0),
 
-INSERT INTO kardex (empleadoId, cursoId, fechaInicioCurso, estadoCurso, tipoProgramacion, fechaTerminoCurso, modalidad, calificacion, urlDC3, fechaSubidaDC3)
-VALUES ( '441540d1-ff5c-4898-917b-1fb6cd37b920', '459a657b-7ab6-46a0-9d9b-b46bf67d9da3', '2026-03-01', 'APROBADO', 'F', '2026-03-12', NULL, 100, NULL, NULL);
+    CONSTRAINT chk_fechas_vida_necesidad
+        CHECK (fechaResolucion >= fechaPropuesta),
 
-INSERT INTO kardex (empleadoId, cursoId, fechaInicioCurso, estadoCurso, tipoProgramacion, fechaTerminoCurso, modalidad, calificacion, urlDC3, fechaSubidaDC3)
-VALUES ( '60b80bd2-7ebe-4a24-8670-92a916db26a1', '4b222cf9-7c4b-4b32-86be-f03f74cf1d7e', '2026-03-22', 'APROBADO', 'F', '2026-04-16', NULL, 93, NULL, NULL);
+    CONSTRAINT chk_fechas_estado
+        CHECK (
+            (
+                estado IN ('BORRADOR', 'PENDIENTE')
+                AND fechaResolucion IS NULL
+            )
+            OR
+            (
+                estado IN ('APROBADA', 'RECHAZADA', 'CANCELADA')
+                AND fechaResolucion IS NOT NULL
+            )
+        ),
 
-INSERT INTO kardex (empleadoId, cursoId, fechaInicioCurso, estadoCurso, tipoProgramacion, fechaTerminoCurso, modalidad, calificacion, urlDC3, fechaSubidaDC3)
-VALUES 
-('21282f61-3571-40e9-b212-6cc7ccb0a814', '27d47cb5-5fc2-44b2-9c6a-8ea9b1b7c442', '2026-11-08', 'INSCRITO', 'F', NULL, NULL, NULL, NULL, NULL),
-( '21282f61-3571-40e9-b212-6cc7ccb0a814', 'c5abc2f0-6adf-48d0-80db-bf7b427c33c9', '2026-11-08', 'INSCRITO', 'F', NULL, NULL, NULL, NULL, NULL),
-( '21282f61-3571-40e9-b212-6cc7ccb0a814', 'cdd03831-081f-4edd-8e4b-80186d10f474', '2026-11-08', 'INSCRITO', 'F', NULL, NULL, NULL, NULL, NULL);
+    CONSTRAINT chk_motivo_rechazo
+        CHECK (
+            estado <> 'RECHAZADA'
+            OR (
+                motivoRechazo IS NOT NULL
+                AND LENGTH(TRIM(motivoRechazo)) > 0
+            )
+        ),
 
-select e.empleadoid, e.rpe, c.cursoid, c.codigocurso, c.nombre as nombreCurso, c.horaspracticas, c.horasteoria, c.tipocurso, ck.modalidad, c.generadc3, ck.fechainiciocurso, ck.fechaterminocurso 
-from kardex k
-inner join cursokardex ck on ck.kardexid = k.kardexid 
-inner join empleado e on e.empleadoid = k.empleadoid 
-inner join curso c on c.cursoid = ck.cursoid 
-where k.kardexid  = '5c59fce4-b0a8-4a14-83fc-0877d5d92f08'
+    CONSTRAINT chk_recepcion_aportes
+        CHECK (
+            NOT aceptaAportes
+            OR (
+                estado = 'PENDIENTE'
+                AND visibilidad <> 'PRIVADA'
+            )
+        )
+);
 
+CREATE TABLE aporte_necesidad (
+    aporteId UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
- SELECT
-        e.empleadoid,
-        e.rpe,
-        c.cursoid,
-        c.codigocurso,
-        c.nombre AS nombreCurso,
-        c.horaspracticas,
-        c.horasteoria,
-        c.tipocurso,
-        k.modalidad,
-        c.generadc3,
-        k.fechainiciocurso,
-        k.fechaterminocurso,
-        k.calificacion,
-        k.estadocurso
-      FROM kardex k
-      INNER JOIN empleado e ON e.empleadoid = k.empleadoid
-      LEFT JOIN curso c ON c.cursoid = k.cursoid
-      WHERE e.empleadoid = '21282f61-3571-40e9-b212-6cc7ccb0a814'
+    necesidadId UUID NOT NULL
+        REFERENCES necesidad(necesidadId),
+
+    responsableId UUID NOT NULL
+        REFERENCES empleado(empleadoId),
+
+    departamentoId UUID NOT NULL
+        REFERENCES departamento(departamentoId),
+
+    fechaCreacion TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    fechaEnvio TIMESTAMPTZ,
+
+    estado VARCHAR(20) NOT NULL DEFAULT 'BORRADOR'
+        CHECK (estado IN (
+            'BORRADOR',
+            'ENVIADO',
+            'RETIRADO'
+        )),
+
+    CONSTRAINT uq_aporte_necesidad_departamento
+        UNIQUE (necesidadId, departamentoId)
+);
+
+CREATE TABLE cursos_propuestos_necesidad (
+    aporteId UUID NOT NULL
+        REFERENCES aporte_necesidad(aporteId),
+
+    cursoId UUID NOT NULL
+        REFERENCES curso(cursoId),
+
+    PRIMARY KEY (aporteId, cursoId)
+);
+
+CREATE TABLE empleados_propuestos_necesidad (
+    aporteId UUID NOT NULL
+        REFERENCES aporte_necesidad(aporteId),
+
+    empleadoId UUID NOT NULL
+        REFERENCES empleado(empleadoId),
+
+    PRIMARY KEY (aporteId, empleadoId)
+);
+
+CREATE TABLE necesidad_visibilidad (
+    necesidadId UUID NOT NULL
+        REFERENCES necesidad(necesidadId),
+
+    departamentoId UUID NOT NULL
+        REFERENCES departamento(departamentoId),
+
+    autorizadoPor UUID NOT NULL
+        REFERENCES empleado(empleadoId),
+
+    fechaAutorizacion TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    PRIMARY KEY (necesidadId, departamentoId)
+);

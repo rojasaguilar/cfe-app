@@ -5,6 +5,7 @@ import {
   Users,
   AlertCircle,
   ClipboardList,
+  CalendarCheck,
   MessageSquare,
   Bell,
   ChevronDown,
@@ -65,6 +66,12 @@ export const Layout = () => {
       icon: ListCheck,
       label: "Baterias capacitacion",
       href: "/baterias",
+    },
+    {
+      id: "capacitacion",
+      icon: CalendarCheck,
+      label: "Plan de capacitacion",
+      href: "/planes-capacitacion",
     },
   ];
 
